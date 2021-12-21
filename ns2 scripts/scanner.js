@@ -9,12 +9,12 @@ export async function main(ns) {
     let column = 20;
     var headers = () => {
         table([
-            'target',
+            'Target',
             'Hack chance',
             'Hack time',
             'Hack amount',
-            '$ per sec',
-            'remaining money %',
+            'Hack $/s',
+            '$ Remaining %',
         ]);
     };
 
