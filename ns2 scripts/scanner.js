@@ -6,7 +6,7 @@ export async function main(ns) {
         hack_amount,
         money_percent,
         hack_money_per_sec;
-    let column = 20;
+    let column = 15;
     var headers = () => {
         table([
             'Target',
@@ -14,22 +14,24 @@ export async function main(ns) {
             'Hack time',
             'Hack amount',
             'Hack $/s',
-            '$ Remaining %',
+            '$ left %',
         ]);
     };
 
     var table = (a) => {
+        // input a list of items ready to be printed to a line
         let string = '',
             pad = 0,
             length = 0;
         for (let x of a) {
-            length = (x + '').length; // convert to string
+            // loop over each list item
+            length = (x + '').length; // convert to string, get length
             pad = column - length;
-            pad = Array(pad + 1).join(' '); // pad ending with spaces
-            string = string.concat(x);
-            string = string.concat(pad);
+            pad = Array(pad + 1).join(' '); // build
+            string = string.concat(x); // add data
+            string = string.concat(pad); // add trailing spaces
         }
-        ns.tprint(string);
+        ns.tprint(string); //print line
     };
     headers();
     for (let target of hosts) {
