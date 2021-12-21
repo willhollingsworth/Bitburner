@@ -10,9 +10,9 @@ export async function main(ns) {
     var headers = () => {
         table([
             'target',
-            'hack chance',
-            'hack time',
-            'hack amount',
+            'Hack chance',
+            'Hack time',
+            'Hack amount',
             '$ per sec',
             'remaining money %',
         ]);
