@@ -4,11 +4,20 @@ var path = require('path');
 /*
 simple webserver to allow downloading of files into bitburner without the need for copy paste
 https://www.tutorialsteacher.com/nodejs/create-nodejs-web-server
+
 */
 https: var port = 7000;
+//set script folder
+const script_folder = path.join(__dirname, '..', 'ns2 scripts');
+
+//read folder contents, strip file extension
+var scripts = fs.readdirSync(script_folder).map((i) => {
+    return i.split('.')[0];
+});
 
 function read_file(file) {
-    const filepath = path.join(__dirname, '..', 'ns2 scripts', file);
+    //read the given file and return the data
+    const filepath = path.join(script_folder, file);
     return fs.readFileSync(filepath, 'utf8', (err, data) => {
         if (err) throw err;
         // console.log(data);
@@ -16,19 +25,20 @@ function read_file(file) {
     });
 }
 
-https: var server = http.createServer(function (request, response) {
-    if (request.url == '/') {
+var server = http.createServer(function (request, response) {
+    req = request.url.replace('/', '');
+    if (scripts.includes(req)) {
+        // if requested file is available locally, server it
         response.writeHead(200, { 'Content-Type': 'text/plain' });
-        response.end('root');
-    } else if (request.url == '/scanner') {
-        response.writeHead(200, { 'Content-Type': 'text/plain' });
-        console.log('severed scanner');
-        response.end(read_file('scanner.js'));
-    } else if (request.url == '/updater') {
-        response.writeHead(200, { 'Content-Type': 'text/plain' });
-        console.log('severed updater');
-        response.end(read_file('updater.js'));
+        response.end(read_file(req + '.js'));
+        console.log(req, 'downloaded');
+    } else {
+        // if file isn't found return 404
+        response.writeHead(404, { 'Content-Type': 'text/plain' });
+        response.end('not found');
+        console.log('file not found');
     }
 });
 console.log('server started on http://127.0.0.1:' + port);
+console.log('files found :', scripts.join(', '));
 server.listen(port);
