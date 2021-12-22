@@ -4,6 +4,7 @@ export async function main(ns) {
     let hack_chance = 0,
         hack_secs,
         hack_amount,
+        money_avail,
         money_percent,
         hack_money_per_sec;
     let column = 15;
@@ -12,9 +13,10 @@ export async function main(ns) {
             'Target',
             'Hack chance',
             'Hack time',
-            'Hack amount',
+            'Hack $ gain',
             'Hack $/s',
-            '$ left %',
+            '$ left',
+            '$ filled %',
         ]);
     };
 
@@ -41,10 +43,9 @@ export async function main(ns) {
         hack_amount = Math.round(
             ns.hackAnalyze(target) * ns.getServerMoneyAvailable(target)
         );
+        money_avail = Math.round(ns.getServerMoneyAvailable(target));
         money_percent = Math.round(
-            (ns.getServerMoneyAvailable(target) /
-                ns.getServerMaxMoney(target)) *
-                100
+            (money_avail / ns.getServerMaxMoney(target)) * 100
         );
         hack_money_per_sec = Math.round(
             (hack_amount / hack_secs) * (hack_chance / 100)
@@ -55,6 +56,7 @@ export async function main(ns) {
             hack_secs,
             hack_amount,
             hack_money_per_sec,
+            money_avail,
             money_percent,
         ]);
     }
