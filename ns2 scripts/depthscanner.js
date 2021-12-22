@@ -11,13 +11,24 @@ export async function main(ns) {
                 //filter out already tracked items
                 return !hosts.includes(i) && i != 'home';
             });
-            ns.tprint(target, "'s new neighbors are : ", new_hosts);
-            new_hosts.forEach((i) => outpnut.push(i)); // add new hosts to output list
+            // ns.tprint(target, "'s new neighbors are : ", new_hosts);
+            new_hosts.forEach((i) => output.push(i)); // add new hosts to output list
         }
         return output;
     };
 
-    ns.tprint('initial scan results', return_new_neighbors(ns.scan('home')));
+    var run_scan = (host = 'home', depth = 1) => {
+        var hosts = ns.scan(host);
+        for (var i of [...Array(depth - 1).keys()]) {
+            // ns.tprint('loop ', i, ', hosts ', hosts);
+            hosts = return_new_neighbors(hosts).concat(hosts);
+        }
+        return 'scan run from ' + host + ', d:' + depth + ', result: ' + hosts;
+    };
+
+    // ns.tprint(run_scan());
+    // ns.tprint(run_scan('zer0'));
+    ns.tprint(run_scan('home', 3));
     // ns.tprint(scan_hosts(new_targets));
     // ns.tprint(hosts);
 }
