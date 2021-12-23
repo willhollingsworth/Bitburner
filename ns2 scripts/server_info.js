@@ -1,4 +1,5 @@
 /** @param {NS} ns **/
+import { run_scan } from 'depthscanner.js';
 
 export function table(ns, data) {
     // input a list of items ready to be printed to a line
@@ -78,7 +79,8 @@ export function scan_host(ns, hosts) {
 }
 
 export function main(ns) {
-    let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
+    // let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
+    let hosts = run_scan(ns, 'home', 4); // build an array of directly connected host
     build_headers(ns);
     scan_host(ns, hosts);
 }
