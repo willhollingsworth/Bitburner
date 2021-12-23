@@ -47,8 +47,7 @@ export function get_server_info(ns, target) {
             'Hack $/s',
             Math.round(
                 ((ns.hackAnalyze(target) * ns.getServerMoneyAvailable(target)) /
-                    ns.getHackTime(target) /
-                    1000) *
+                    (ns.getHackTime(target) / 1000)) *
                     ns.hackAnalyzeChance(target)
             ),
         ],
@@ -80,7 +79,7 @@ export function scan_host(ns, hosts) {
 
 export function main(ns) {
     // let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
-    let hosts = run_scan(ns, 'home', 4); // build an array of directly connected host
+    let hosts = run_scan(ns, 'home', 3); // build an array of directly connected host
     build_headers(ns);
     scan_host(ns, hosts);
 }
