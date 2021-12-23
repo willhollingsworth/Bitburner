@@ -35,8 +35,8 @@ var server = http.createServer(function (request, response) {
     } else {
         // if file isn't found return 404
         response.writeHead(404, { 'Content-Type': 'text/plain' });
-        response.end('not found');
-        console.log('file not found');
+        response.end(req + ' not found');
+        console.log(req, 'not found');
     }
 });
 console.log('server started on http://127.0.0.1:' + port);
