@@ -18,6 +18,8 @@ export function table(ns, data) {
 }
 
 export function get_server_info(ns, target) {
+    // returns an object containing the targets info
+    // objects format is key : string_name, computed result
     // ns.tprint('getting info from ', target);
     let server_info = {
         hack_chance: [
@@ -54,6 +56,7 @@ export function get_server_info(ns, target) {
 }
 
 export function build_headers(ns) {
+    // build out the initial headers of the table using appropriate field
     let headers = ['Target'];
     for (let head of Object.keys(get_server_info(ns, 'n00dles'))) {
         headers.push(head);
@@ -67,9 +70,10 @@ export function scan_host(ns, hosts) {
         let host_data = get_server_info(ns, target); // grab their info
         let output_data = [];
         for (let x of Object.values(host_data)) {
+            // split the needed info into a list
             output_data.push(x[1]);
         }
-        table(ns, [target, ...output_data]);
+        table(ns, [target, ...output_data]); // print the info
     }
 }
 
