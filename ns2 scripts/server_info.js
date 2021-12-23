@@ -2,7 +2,7 @@
 
 export function table(ns, data) {
     // input a list of items ready to be printed to a line
-    let column = 15;
+    let column = 18;
     let string = '',
         pad = 0,
         length = 0;
@@ -58,10 +58,10 @@ export function get_server_info(ns, target) {
 export function build_headers(ns) {
     // build out the initial headers of the table using appropriate field
     let headers = ['Target'];
-    for (let head of Object.keys(get_server_info(ns, 'n00dles'))) {
-        headers.push(head);
+    for (let head of Object.values(get_server_info(ns, 'n00dles'))) {
+        headers.push(head[0]);
     }
-    table(ns, ...headers);
+    table(ns, headers);
 }
 
 export function scan_host(ns, hosts) {
