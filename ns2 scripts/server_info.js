@@ -17,45 +17,64 @@ export function table(ns, data) {
     ns.tprint(string); //print line
 }
 
-export async function main(ns) {
-    let hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
-    let hack_chance = 0,
-        hack_secs,
-        hack_amount,
-        money_avail,
-        money_percent,
-        hack_money_per_sec;
-    table(ns, [
-        'Target',
-        'Hack chance',
-        'Hack time',
-        'Hack $ gain',
-        'Hack $/s',
-        '$ left',
-        '$ filled %',
-    ]);
+export function get_server_info(ns, target) {
+    // ns.tprint('getting info from ', target);
+    let server_info = {
+        hack_chance: [
+            'Hack chance',
+            Math.round(ns.hackAnalyzeChance(target) * 100),
+        ],
+        hack_secs: ['Hack time', Math.round(ns.getHackTime(target) / 1000)],
+        hack_amount: [
+            'Hack $ gain',
+            Math.round(
+                ns.hackAnalyze(target) * ns.getServerMoneyAvailable(target)
+            ),
+        ],
+        money_avail: ['$ left', Math.round(ns.getServerMoneyAvailable(target))],
+        money_percent: [
+            '$% filled',
+            Math.round(
+                (ns.getServerMoneyAvailable(target) /
+                    ns.getServerMaxMoney(target)) *
+                    100
+            ),
+        ],
+        hack_money_per_sec: [
+            'Hack $/s',
+            Math.round(
+                ((ns.hackAnalyze(target) * ns.getServerMoneyAvailable(target)) /
+                    ns.getHackTime(target) /
+                    1000) *
+                    ns.hackAnalyzeChance(target)
+            ),
+        ],
+    };
+    return server_info;
+}
+
+export function build_headers(ns) {
+    let headers = ['Target'];
+    for (let head of Object.keys(get_server_info(ns, 'n00dles'))) {
+        headers.push(head);
+    }
+    table(ns, ...headers);
+}
+
+export function scan_host(ns, hosts) {
     for (let target of hosts) {
         // loop over each host
-        hack_chance = Math.round(ns.hackAnalyzeChance(target) * 100);
-        hack_secs = Math.round(ns.getHackTime(target) / 1000);
-        hack_amount = Math.round(
-            ns.hackAnalyze(target) * ns.getServerMoneyAvailable(target)
-        );
-        money_avail = Math.round(ns.getServerMoneyAvailable(target));
-        money_percent = Math.round(
-            (money_avail / ns.getServerMaxMoney(target)) * 100
-        );
-        hack_money_per_sec = Math.round(
-            (hack_amount / hack_secs) * (hack_chance / 100)
-        );
-        table(ns, [
-            target,
-            hack_chance,
-            hack_secs,
-            hack_amount,
-            hack_money_per_sec,
-            money_avail,
-            money_percent,
-        ]);
+        let host_data = get_server_info(ns, target); // grab their info
+        let output_data = [];
+        for (let x of Object.values(host_data)) {
+            output_data.push(x[1]);
+        }
+        table(ns, [target, ...output_data]);
     }
+}
+
+export function main(ns) {
+    let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
+    build_headers(ns);
+    scan_host(ns, hosts);
 }
