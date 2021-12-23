@@ -64,7 +64,8 @@ export function build_headers(ns) {
     table(ns, headers);
 }
 
-export function scan_host(ns, hosts) {
+export function scan_hosts(ns, hosts) {
+    let hosts_data = [];
     for (let target of hosts) {
         // loop over each host
         let host_data = get_server_info(ns, target); // grab their info
@@ -73,7 +74,12 @@ export function scan_host(ns, hosts) {
             // split the needed info into a list
             output_data.push(x[1]);
         }
-        table(ns, [target, ...output_data]); // print the info
+        hosts_data.push([target, ...output_data]);
+        // table(ns, [target, ...output_data]); // print the info
+    }
+    hosts_data.sort;
+    for (let x of hosts_data) {
+        table(ns, x);
     }
 }
 
@@ -81,5 +87,5 @@ export function main(ns) {
     // let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
     let hosts = run_scan(ns, 'home', 3); // build an array of directly connected host
     build_headers(ns);
-    scan_host(ns, hosts);
+    scan_hosts(ns, hosts);
 }
