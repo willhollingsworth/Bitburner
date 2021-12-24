@@ -10,5 +10,8 @@ export async function main(ns) {
     if (!ns.args[1]) {
         ns.args[1] = '';
     }
-    await ns.exec(ns.args[0] + '.js', 'home', 1, ns.args[1]);
+    if (!ns.args[2]) {
+        ns.args[2] = '';
+    }
+    await ns.exec(ns.args[0] + '.js', 'home', 1, ns.args[1], ns.args[2]);
 }
