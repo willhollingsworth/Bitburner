@@ -84,8 +84,15 @@ export function scan_hosts(ns, hosts) {
 }
 
 export function main(ns) {
+    let depth = 0;
+    if (!ns.args[0]) {
+        depth = 1;
+    } else {
+        depth = ns.args[0];
+    }
+    ns.tprint('running scan with a depth of ', depth);
     // let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
-    let hosts = run_scan(ns, 'home', 3); // build an array of directly connected host
+    let hosts = run_scan(ns, 'home', depth); // build an array of directly connected host
     build_headers(ns);
     scan_hosts(ns, hosts);
 }
