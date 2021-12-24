@@ -1,15 +1,14 @@
 /** @param {NS} ns **/
 export async function main(ns) {
     var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
-    var success_threshold = 75;
+    var security_threshold = 0;
     var money_threshold = 75;
 
     var script = '';
     var threads = 0;
-
-    var hack_chance = 0;
+    var security_delta = 0;
     var money_percent = 0;
-    var log = false;
+    var log = true;
 
     if (ns.args[0] == 'log') {
         log = true;
@@ -24,18 +23,25 @@ export async function main(ns) {
         await ns.sleep(2000);
         for (let target of hosts) {
             // loop over each host
-            hack_chance = Math.round(ns.hackAnalyzeChance(target) * 100);
+            await ns.sleep(100);
             money_percent = Math.round(
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
                     100
             );
+            security_delta =
+                ns.getServerSecurityLevel(target) -
+                ns.getServerMinSecurityLevel(target);
             if (k) {
-                continue;
+                continue; // kill command sent, don't run other processes
             }
-            if (hack_chance < success_threshold) {
+            if (security_threshold > security_delta) {
                 if (log) {
-                    ns.print(target, ': hack chance too low ', hack_chance);
+                    ns.print(
+                        target,
+                        ': security level not low enough ',
+                        security_delta
+                    );
                 }
                 script = 'weaken.script';
             } else if (money_percent < money_threshold) {
