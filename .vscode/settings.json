@@ -1,4 +1,8 @@
 {
     "python.formatting.provider": "black",
-    "cSpell.words": ["tprint"]
+    "cSpell.words": [
+        "depthscanner",
+        "foodnstuff",
+        "tprint"
+    ]
 }
