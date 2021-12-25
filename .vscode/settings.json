@@ -1,8 +1,11 @@
 {
     "python.formatting.provider": "black",
     "cSpell.words": [
+        "brutessh",
+        "CSEC",
         "depthscanner",
         "foodnstuff",
+        "ftpcrack",
         "tprint"
     ]
 }
