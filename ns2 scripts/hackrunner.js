@@ -4,11 +4,12 @@ import { run_scan } from 'depthscanner.js';
 export function check_and_get_access(ns, target) {
     let num_ports_req = ns.getServerNumPortsRequired(target);
     if (!ns.hasRootAccess(target)) {
-        if (num_ports_req == 0) {
-            ns.nuke(target);
+        if (num_ports_req > 0) {
+            // if ns.fileExists('')
+            ns.brutessh(target);
         }
-        if (num_ports_req == 1) {
-            return false;
+        if (num_ports_req < 2) {
+            ns.nuke(target);
         }
     }
     if (ns.hasRootAccess(target)) {
@@ -21,8 +22,10 @@ export function check_and_get_access(ns, target) {
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     var hosts = run_scan(ns, 'home', 3); // build an array of directly and indirectly connected hosts
+    var ignored_hosts = ['CSEC'];
+    hosts = hosts.filter((host) => !ignored_hosts.includes(host));
     var security_threshold = 0;
-    var money_threshold = 75;
+    var money_threshold = 4;
 
     var script = '';
     var threads = 0;
@@ -53,11 +56,11 @@ export async function main(ns) {
                 continue;
             }
 
-            money_percent = Math.round(
+            money_percent = (
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
-                    100
-            );
+                100
+            ).toPrecision(3);
             security_delta = (
                 ns.getServerSecurityLevel(target) -
                 ns.getServerMinSecurityLevel(target)
@@ -70,23 +73,22 @@ export async function main(ns) {
             //select the appropriate script
             if (security_delta > security_threshold) {
                 if (log) {
-                    ns.tprint(
-                        target,
-                        ': security level not low enough ',
-                        security_delta
-                    );
+                    // ns.tprint(
+                    //     `${target} : security level not low enough ${security_delta} - running weaken`
+                    // );
                 }
                 script = 'weaken.script';
             } else if (money_percent < money_threshold) {
                 if (log) {
-                    ns.tprint(
-                        target,
-                        ' : money remaining too low ',
-                        money_percent
-                    );
+                    // ns.tprint(
+                    //     `${target} : money too low ${money_percent}  - running grow`
+                    // );
                 }
                 script = 'grow.script';
             } else {
+                if (log) {
+                    // ns.tprint(`${target} - running hacking`);
+                }
                 script = 'hack.script';
             }
 
@@ -104,7 +106,9 @@ export async function main(ns) {
             // execute script
             if (threads > 0) {
                 if (log) {
-                    ns.tprint(target, ': run ', script, ' - threads ', threads);
+                    ns.tprint(
+                        `${target} run ${script}, Money:${money_percent}%, Security:${security_delta}, Threads:${threads}`
+                    );
                 }
                 ns.exec(script, target, threads, target); // run the script}
             }
