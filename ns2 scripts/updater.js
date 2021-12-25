@@ -7,11 +7,25 @@ export async function main(ns) {
         ns.exit();
     }
     await ns.sleep(500);
-    if (!ns.args[1]) {
-        ns.args[1] = '';
+    // if (!ns.args[1]) {
+    //     ns.args[1] = '';
+    // }
+    // if (!ns.args[2]) {
+    //     ns.args[2] = '';
+    // }
+
+    if (ns.args[1]) {
+        if (ns.args[2]) {
+            await ns.exec(
+                ns.args[0] + '.js',
+                'home',
+                1,
+                ns.args[1],
+                ns.args[2]
+            );
+        }
+        await ns.exec(ns.args[0] + '.js', 'home', 1, ns.args[1]);
+    } else {
+        await ns.exec(ns.args[0] + '.js', 'home', 1);
     }
-    if (!ns.args[2]) {
-        ns.args[2] = '';
-    }
-    await ns.exec(ns.args[0] + '.js', 'home', 1, ns.args[1], ns.args[2]);
 }
