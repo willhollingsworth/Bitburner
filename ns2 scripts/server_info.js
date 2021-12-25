@@ -18,11 +18,18 @@ export function table(ns, data) {
     ns.tprint(string); //print line
 }
 
-export function get_server_info(ns, target) {
+export function get_server_info(ns, target, type = 'all') {
     // returns an object containing the targets info
     // objects format is key : string_name, computed result
-    // ns.tprint('getting info from ', target);
+    // ns.tprint('getting info from: ', target, ', with type: ', type);
+    let types = [];
     let server_info = {
+        security: [
+            'Sec curr / min',
+            Math.round(ns.getServerSecurityLevel(target)) +
+                ' / ' +
+                Math.round(ns.getServerMinSecurityLevel(target)),
+        ],
         hack_chance: [
             'Hack chance',
             Math.round(ns.hackAnalyzeChance(target) * 100),
@@ -52,23 +59,41 @@ export function get_server_info(ns, target) {
             ),
         ],
     };
-    return server_info;
+    if (type == 'all') {
+        return server_info;
+    } else {
+        let output = {};
+        if (type == 'standard') {
+            types = ['security', 'hack_money_per_sec'];
+        }
+        // ns.tprint('test');
+        for (let x of types) {
+            // Object.assign(output, test_obj);
+            // output.x = server_info['x'][0];
+            // ns.tprint(server_info['x']);
+            // ns.tprint(x, '  ', server_info['x']);
+        }
+        output = server_info;
+        return output;
+        // (type == 'standard') return server_info['security'];
+    }
 }
 
-export function build_headers(ns) {
+export function build_headers(ns, type) {
     // build out the initial headers of the table using appropriate field
     let headers = ['Target'];
-    for (let head of Object.values(get_server_info(ns, 'n00dles'))) {
+    let server_list = Object.values(get_server_info(ns, 'foodnstuff', type));
+    for (let head of server_list) {
         headers.push(head[0]);
     }
     table(ns, headers);
 }
 
-export function scan_hosts(ns, hosts) {
+export function scan_hosts(ns, hosts, type) {
     let hosts_data = [];
     for (let target of hosts) {
         // loop over each host
-        let host_data = get_server_info(ns, target); // grab their info
+        let host_data = get_server_info(ns, target, type); // grab their info
         let output_data = [];
         for (let x of Object.values(host_data)) {
             // split the needed info into a list
@@ -85,14 +110,19 @@ export function scan_hosts(ns, hosts) {
 
 export function main(ns) {
     let depth = 0;
+    let type = '';
     if (!ns.args[0]) {
-        depth = 1;
+        depth = 2;
     } else {
         depth = ns.args[0];
     }
-    ns.tprint('running scan with a depth of ', depth);
-    // let hosts = ns.scan(ns.getHostname()); // build an array of directly connected host
+    if (!ns.args[1]) {
+        type = 'standard';
+    } else {
+        type = ns.args[1];
+    }
+    // ns.tprint('running scan with a depth of ', depth);
     let hosts = run_scan(ns, 'home', depth); // build an array of directly connected host
-    build_headers(ns);
-    scan_hosts(ns, hosts);
+    build_headers(ns, type);
+    scan_hosts(ns, hosts, type);
 }
