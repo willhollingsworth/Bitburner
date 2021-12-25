@@ -26,9 +26,9 @@ export function get_server_info(ns, target, type = 'all') {
     let server_info = {
         security: [
             'Sec curr / min',
-            Math.round(ns.getServerSecurityLevel(target)) +
+            ns.getServerSecurityLevel(target).toPrecision(2) +
                 ' / ' +
-                Math.round(ns.getServerMinSecurityLevel(target)),
+                ns.getServerMinSecurityLevel(target).toPrecision(2),
         ],
         hack_chance: [
             'Hack chance',
@@ -44,11 +44,11 @@ export function get_server_info(ns, target, type = 'all') {
         money_avail: ['$ left', Math.round(ns.getServerMoneyAvailable(target))],
         money_percent: [
             '$% filled',
-            Math.round(
+            (
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
-                    100
-            ),
+                100
+            ).toPrecision(4),
         ],
         hack_money_per_sec: [
             'Hack $/s',
