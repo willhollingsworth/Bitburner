@@ -1,4 +1,5 @@
 /** @param {NS} ns **/
+import { run_scan } from 'depthscanner.js';
 
 export function check_and_get_access(ns, target) {
     let num_ports_req = ns.getServerNumPortsRequired(target);
@@ -18,7 +19,8 @@ export function check_and_get_access(ns, target) {
 }
 
 export async function main(ns) {
-    var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
+    // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
+    var hosts = run_scan(ns, 'home', 3); // build an array of directly and indirectly connected hosts
     var security_threshold = 0;
     var money_threshold = 75;
 
