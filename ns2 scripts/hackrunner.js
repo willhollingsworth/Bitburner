@@ -58,16 +58,18 @@ export async function main(ns) {
                     ns.getServerMaxMoney(target)) *
                     100
             );
-            security_delta =
+            security_delta = (
                 ns.getServerSecurityLevel(target) -
-                ns.getServerMinSecurityLevel(target);
+                ns.getServerMinSecurityLevel(target) +
+                0.1
+            ).toPrecision(2);
 
             if (k) {
                 continue; // kill command sent, don't run other processes
             }
-
+            // ns.tprint(`${target}security delta is ${security_delta}`);
             //select the appropriate script
-            if (security_threshold > security_delta) {
+            if (security_delta > security_threshold) {
                 if (log) {
                     ns.tprint(
                         target,
@@ -98,7 +100,6 @@ export async function main(ns) {
             // deploy script to server
             if (!ns.fileExists(script, target)) {
                 await ns.scp(script, 'home', target);
-                r;
             }
 
             // execute script
