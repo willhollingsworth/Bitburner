@@ -65,6 +65,8 @@ export async function main(ns) {
             if (k) {
                 continue; // kill command sent, don't run other processes
             }
+
+            //select the appropriate script
             if (security_threshold > security_delta) {
                 if (log) {
                     ns.tprint(
@@ -86,14 +88,20 @@ export async function main(ns) {
             } else {
                 script = 'hack.script';
             }
+
+            // determine the number of times the script can be run
             threads = Math.floor(
-                // determine the number of times the script can be run
                 (ns.getServerMaxRam(target) - ns.getServerUsedRam(target)) /
                     ns.getScriptRam(script, target)
             );
+
+            // deploy script to server
             if (!ns.fileExists(script, target)) {
-                await ns.scp(script, 'home', target); // deploy script to server
+                await ns.scp(script, 'home', target);
+                r;
             }
+
+            // execute script
             if (threads > 0) {
                 if (log) {
                     ns.tprint(target, ': run ', script, ' - threads ', threads);
