@@ -102,7 +102,7 @@ export function scan_hosts(ns, hosts, type) {
         hosts_data.push([target, ...output_data]);
         // table(ns, [target, ...output_data]); // print the info
     }
-    hosts_data.sort;
+    hosts_data.sort((a, b) => b[2] - a[2]);
     for (let x of hosts_data) {
         table(ns, x);
     }
