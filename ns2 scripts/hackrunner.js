@@ -60,8 +60,7 @@ export async function main(ns) {
             );
             security_delta = (
                 ns.getServerSecurityLevel(target) -
-                ns.getServerMinSecurityLevel(target) +
-                0.1
+                ns.getServerMinSecurityLevel(target)
             ).toPrecision(2);
 
             if (k) {
