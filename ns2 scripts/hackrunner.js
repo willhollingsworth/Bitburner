@@ -3,16 +3,18 @@ import { run_scan } from 'depthscanner.js';
 
 export function check_and_get_access(ns, target) {
     let num_ports_req = ns.getServerNumPortsRequired(target);
-    if (!ns.hasRootAccess(target)) {
-        if (num_ports_req > 0) {
-            // if ns.fileExists('')
-            ns.brutessh(target);
-        }
-        if (num_ports_req < 2) {
-            ns.nuke(target);
-        }
+    let num_ports_avail = 0;
+    if (ns.fileExists('brutessh.exe', 'home')) {
+        ns.brutessh(target);
+        num_ports_avail += 1;
     }
-    if (ns.hasRootAccess(target)) {
+    if (ns.fileExists('FTPCrack.exe', 'home')) {
+        ns.ftpcrack(target);
+        num_ports_avail += 1;
+    }
+    let port_delta = num_ports_avail - num_ports_req;
+    if (port_delta >= 0) {
+        ns.nuke(target);
         return true;
     } else {
         return false;
