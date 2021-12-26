@@ -3,10 +3,11 @@ import { run_scan } from 'depthscanner.js';
 
 export function table(ns, data) {
     // input a list of items ready to be printed to a line
-    let column = 18;
-    let string = '',
+    let column = 18,
+        string = '',
         pad = 0,
         length = 0;
+
     for (let x of data) {
         // loop over each list item
         length = (x + '').length; // convert to string, get length
@@ -62,20 +63,14 @@ export function get_server_info(ns, target, type = 'all') {
     if (type == 'all') {
         return server_info;
     } else {
-        let output = {};
+        let temp_list = Object.entries(server_info),
+            types = [];
         if (type == 'standard') {
             types = ['security', 'hack_money_per_sec'];
         }
-        // ns.tprint('test');
-        for (let x of types) {
-            // Object.assign(output, test_obj);
-            // output.x = server_info['x'][0];
-            // ns.tprint(server_info['x']);
-            // ns.tprint(x, '  ', server_info['x']);
-        }
-        output = server_info;
-        return output;
-        // (type == 'standard') return server_info['security'];
+        temp_list = temp_list.filter((key) => types.includes(key[0]));
+        server_info = Object.fromEntries(temp_list);
+        return server_info;
     }
 }
 
@@ -109,17 +104,19 @@ export function scan_hosts(ns, hosts, type) {
 }
 
 export function main(ns) {
-    let depth = 0;
-    let type = '';
+    let depth = 0,
+        type = '';
     if (!ns.args[0]) {
         depth = 2;
     } else {
         depth = ns.args[0];
     }
     if (!ns.args[1]) {
+        ns.tprint('no types detected');
         type = 'standard';
     } else {
         type = ns.args[1];
+        ns.tprint('type detected - ', ns.args[1]);
     }
     // ns.tprint('running scan with a depth of ', depth);
     let hosts = run_scan(ns, 'home', depth); // build an array of directly connected host
