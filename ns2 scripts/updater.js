@@ -2,7 +2,7 @@
 export async function main(ns) {
     let url = 'http://127.0.0.1:7000/';
     await ns.wget(url + ns.args[0], ns.args[0] + '.js', 'home');
-    if (ns.getScriptName() == ns.args[0] + '.js') {
+    if (ns.getScriptName() == ns.args[0] + '.js' || !ns.args[0]) {
         ns.tprint('self updating detected, will not run exec command');
         ns.exit();
     }
@@ -23,6 +23,7 @@ export async function main(ns) {
                 ns.args[1],
                 ns.args[2]
             );
+            ns.exit();
         }
         await ns.exec(ns.args[0] + '.js', 'home', 1, ns.args[1]);
     } else {
