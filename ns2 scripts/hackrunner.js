@@ -4,6 +4,9 @@ import { run_scan } from 'depthscanner.js';
 export function check_and_get_access(ns, target) {
     let num_ports_req = ns.getServerNumPortsRequired(target);
     let num_ports_avail = 0;
+    if (target == 'home') {
+        return true;
+    }
     if (ns.fileExists('brutessh.exe', 'home')) {
         ns.brutessh(target);
         num_ports_avail += 1;
@@ -50,9 +53,8 @@ export async function main(ns) {
     } else if (ns.args[0] == 'kill') {
         // if kill argument then shut down all active programs via a kill all
         var k = true;
-    } else if (ns.args[0] == 'self') {
-        hosts.push('home');
     }
+    hosts.push('home');
 
     while (true) {
         await ns.sleep(2000);
@@ -109,7 +111,7 @@ export async function main(ns) {
 
             if (script == 'weaken.script') {
                 if (threads * 0.05 > security_delta) {
-                    ns.tprint(host, ' would over weaken, running hack instead');
+                    // ns.tprint(host, ' would over weaken, running hack instead');
                     script = 'hack.script';
                 }
             }
@@ -118,7 +120,7 @@ export async function main(ns) {
             if (!ns.fileExists(script, host)) {
                 await ns.scp(script, 'home', host);
             }
-
+            script = 'grow.script';
             // execute script
             if (threads > 0) {
                 if (log) {
