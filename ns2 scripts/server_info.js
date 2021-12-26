@@ -59,6 +59,11 @@ export function get_server_info(ns, target, type = 'all') {
                     ns.hackAnalyzeChance(target)
             ),
         ],
+        ram: [
+            'Ram used / total',
+            ns.getServerUsedRam(target) + ' / ' + ns.getServerMaxRam(target),
+        ],
+        root: ['root access', ns.hasRootAccess(target) ? 'Yes' : 'No'],
     };
     if (type == 'all') {
         return server_info;
@@ -66,7 +71,7 @@ export function get_server_info(ns, target, type = 'all') {
         let temp_list = Object.entries(server_info),
             types = [];
         if (type == 'standard') {
-            types = ['security', 'hack_money_per_sec'];
+            types = ['security', 'hack_money_per_sec', 'ram'];
         }
         temp_list = temp_list.filter((key) => types.includes(key[0]));
         server_info = Object.fromEntries(temp_list);
