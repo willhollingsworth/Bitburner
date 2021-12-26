@@ -1,6 +1,16 @@
 /** @param {NS} ns **/
 import { run_scan } from 'depthscanner.js';
 
+export async function log_to_file(ns, data, enabled) {
+    if (!enabled) {
+        return;
+    }
+    let filename = ns.getScriptName().split('.')[0];
+    filename = 'log_' + filename + '.txt';
+    await ns.write(filename, data);
+    await ns.write(filename, '\r\n');
+}
+
 export function check_and_get_access(ns, target) {
     let num_ports_req = ns.getServerNumPortsRequired(target);
     let num_ports_avail = 0;
@@ -25,7 +35,7 @@ export function check_and_get_access(ns, target) {
 }
 
 export function select_best_target(ns, hosts) {
-    return 'sigma-cosmetics';
+    return 'foodnstuff';
 }
 
 export async function main(ns) {
@@ -38,7 +48,7 @@ export async function main(ns) {
         threads = 0,
         security_delta = 0,
         money_percent = 0,
-        log = false;
+        log = true;
 
     hosts = hosts.filter((host) => !ignored_hosts.includes(host));
 
@@ -55,7 +65,9 @@ export async function main(ns) {
         var k = true;
     }
     hosts.push('home');
-
+    if (log) {
+        ns.rm(ns.getScriptName().split('.')[0], 'home');
+    }
     while (true) {
         await ns.sleep(2000);
         let target = select_best_target(ns, hosts);
@@ -80,38 +92,59 @@ export async function main(ns) {
             if (k) {
                 continue; // kill command sent, don't run other processes
             }
-            // ns.tprint(`${host}security delta is ${security_delta}`);
             //select the appropriate script
             if (security_delta > security_threshold) {
-                if (log) {
-                    // ns.tprint(
-                    //     `${host} : security level not low enough ${security_delta} - running weaken`
-                    // );
-                }
+                // await log_to_file(
+                //     ns,
+                //     `${host} : security level not low enough ${security_delta} - running weaken`,
+                //     log
+                // );
+
                 script = 'weaken.script';
-            } else if (money_percent < money_threshold) {
-                if (log) {
-                    // ns.tprint(
-                    //     `${host} : money too low ${money_percent}  - running grow`
-                    // );
-                }
+            } else if (money_percent > money_threshold) {
+                // await log_to_file(
+                //     ns,
+                //     `${host} : money too low ${money_percent}  - running grow`,
+                //     log
+                // );
                 script = 'grow.script';
             } else {
-                if (log) {
-                    // ns.tprint(`${host} - running hacking`);
-                }
+                // await log_to_file(`${host} - running hacking`, log);
                 script = 'hack.script';
             }
 
             // determine the number of times the script can be run
+            // if (!host == 'home') {
             threads = Math.floor(
                 (ns.getServerMaxRam(host) - ns.getServerUsedRam(host)) /
                     ns.getScriptRam(script, host)
             );
 
+            if (host == 'home') {
+                threads = Math.floor(
+                    (ns.getServerMaxRam(host) -
+                        ns.getServerUsedRam(host) -
+                        10) /
+                        ns.getScriptRam(script, host)
+                );
+            }
+
             if (script == 'weaken.script') {
+                // }
+                // } else {
+                //     threads = Math.floor(
+                //         (ns.getServerMaxRam(host) -
+                //             ns.getServerUsedRam(host) -
+                //             10) /
+                //             ns.getScriptRam(script, host)
+                //     );
+                // }
+
                 if (threads * 0.05 > security_delta) {
-                    // ns.tprint(host, ' would over weaken, running hack instead');
+                    // await log_to_file(
+                    //     host,
+                    //     ' would over weaken, running hack instead'
+                    // );
                     script = 'hack.script';
                 }
             }
@@ -120,14 +153,18 @@ export async function main(ns) {
             if (!ns.fileExists(script, host)) {
                 await ns.scp(script, 'home', host);
             }
-            script = 'grow.script';
             // execute script
             if (threads > 0) {
-                if (log) {
-                    ns.tprint(
-                        `${host} run ${script} targeting ${target}, Money:${money_percent}%, Security:${security_delta}, Threads:${threads}`
-                    );
-                }
+                await log_to_file(
+                    ns,
+                    `${host}        ${
+                        script.split('.')[0]
+                    } $:${money_percent}% ${
+                        money_percent < money_threshold
+                    } Sec:${security_delta} T:${threads}`,
+                    log
+                );
+
                 ns.exec(script, host, threads, target); // run the script}
             }
         }
