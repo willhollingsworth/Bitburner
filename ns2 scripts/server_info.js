@@ -64,6 +64,11 @@ export function get_server_info(ns, target, type = 'all') {
             ns.getServerUsedRam(target) + ' / ' + ns.getServerMaxRam(target),
         ],
         root: ['Root access', ns.hasRootAccess(target) ? 'Yes' : 'No'],
+        ports: ['Ports', ns.getServerNumPortsRequired(target)],
+        hack_skill: [
+            'Skill required',
+            ns.getServerRequiredHackingLevel(target),
+        ],
     };
     if (type == 'all') {
         return server_info;
@@ -71,7 +76,14 @@ export function get_server_info(ns, target, type = 'all') {
         let output_obj = {};
         types = [];
         if (type == 'standard') {
-            types = ['root', 'security', 'hack_money_per_sec', 'ram'];
+            types = [
+                'root',
+                'security',
+                'hack_money_per_sec',
+                'ram',
+                'ports',
+                'hack_skill',
+            ];
         }
         for (let x of types) {
             let temp_obj = {};
