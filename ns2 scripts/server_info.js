@@ -1,23 +1,6 @@
 /** @param {NS} ns **/
 import { run_scan } from 'depthscanner.js';
-
-export function table(ns, data) {
-    // input a list of items ready to be printed to a line
-    let column = 18,
-        string = '',
-        pad = 0,
-        length = 0;
-
-    for (let x of data) {
-        // loop over each list item
-        length = (x + '').length; // convert to string, get length
-        pad = column - length;
-        pad = Array(pad + 1).join(' '); // build
-        string = string.concat(x); // add data
-        string = string.concat(pad); // add trailing spaces
-    }
-    ns.tprint(string); //print line
-}
+import { table } from 'table_display.js';
 
 export function get_server_info(ns, target, type = 'all') {
     // returns an object containing the targets info
@@ -96,8 +79,8 @@ export function get_server_info(ns, target, type = 'all') {
 
 export function build_headers(ns, type) {
     // build out the initial headers of the table using appropriate field
-    let headers = ['Target'];
-    let server_list = Object.values(get_server_info(ns, 'foodnstuff', type));
+    let headers = ['Target'],
+        server_list = Object.values(get_server_info(ns, 'foodnstuff', type));
     for (let head of server_list) {
         headers.push(head[0]);
     }
@@ -108,8 +91,8 @@ export function scan_hosts(ns, hosts, type) {
     let hosts_data = [];
     for (let target of hosts) {
         // loop over each host
-        let host_data = get_server_info(ns, target, type); // grab their info
-        let output_data = [];
+        let host_data = get_server_info(ns, target, type), // grab their info
+            output_data = [];
         for (let x of Object.values(host_data)) {
             // split the needed info into a list
             output_data.push(x[1]);
@@ -124,6 +107,7 @@ export function scan_hosts(ns, hosts, type) {
 }
 
 export function main(ns) {
+    //setup args
     let depth = 0,
         type = '';
     if (!ns.args[0]) {
@@ -139,6 +123,8 @@ export function main(ns) {
         ns.tprint('type detected - ', ns.args[1]);
     }
     // ns.tprint('running scan with a depth of ', depth);
+    //
+    // run main logic
     let hosts = run_scan(ns, 'home', depth); // build an array of directly connected host
     build_headers(ns, type);
     scan_hosts(ns, hosts, type);
