@@ -63,19 +63,22 @@ export function get_server_info(ns, target, type = 'all') {
             'Ram used / total',
             ns.getServerUsedRam(target) + ' / ' + ns.getServerMaxRam(target),
         ],
-        root: ['root access', ns.hasRootAccess(target) ? 'Yes' : 'No'],
+        root: ['Root access', ns.hasRootAccess(target) ? 'Yes' : 'No'],
     };
     if (type == 'all') {
         return server_info;
     } else {
-        let temp_list = Object.entries(server_info),
-            types = [];
+        let output_obj = {};
+        types = [];
         if (type == 'standard') {
-            types = ['security', 'hack_money_per_sec', 'ram'];
+            types = ['root', 'security', 'hack_money_per_sec', 'ram'];
         }
-        temp_list = temp_list.filter((key) => types.includes(key[0]));
-        server_info = Object.fromEntries(temp_list);
-        return server_info;
+        for (let x of types) {
+            let temp_obj = {};
+            temp_obj[x] = server_info[x];
+            Object.assign(output_obj, temp_obj);
+        }
+        return output_obj;
     }
 }
 
@@ -102,7 +105,7 @@ export function scan_hosts(ns, hosts, type) {
         hosts_data.push([target, ...output_data]);
         // table(ns, [target, ...output_data]); // print the info
     }
-    hosts_data.sort((a, b) => b[2] - a[2]);
+    hosts_data.sort((a, b) => b[3] - a[3]);
     for (let x of hosts_data) {
         table(ns, x);
     }
