@@ -35,7 +35,7 @@ export function check_and_get_access(ns, target) {
 }
 
 export function select_best_target(ns, hosts) {
-    return 'foodnstuff';
+    return 'phantasy';
 }
 
 export async function main(ns) {
@@ -43,11 +43,12 @@ export async function main(ns) {
     var hosts = run_scan(ns, 'home', 3), // build an array of directly and indirectly connected hosts
         ignored_hosts = ['CSEC'],
         security_threshold = 0,
-        money_threshold = 4,
+        money_threshold = 80,
         script = '',
         threads = 0,
         security_delta = 0,
         money_percent = 0,
+        available_ram = 0,
         log = true;
 
     hosts = hosts.filter((host) => !ignored_hosts.includes(host));
@@ -68,85 +69,51 @@ export async function main(ns) {
     if (log) {
         ns.rm(ns.getScriptName().split('.')[0], 'home');
     }
-    while (true) {
-        await ns.sleep(2000);
-        let target = select_best_target(ns, hosts);
 
+    while (true) {
+        let target = select_best_target(ns, hosts);
+        security_delta = (
+            ns.getServerSecurityLevel(target) -
+            ns.getServerMinSecurityLevel(target)
+        ).toPrecision(2);
         for (let host of hosts) {
             // loop over each host
-            await ns.sleep(100);
+            await ns.sleep(500);
             if (!check_and_get_access(ns, host)) {
                 continue;
             }
-
             money_percent = (
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
-                100
+                1000
             ).toPrecision(3);
-            security_delta = (
-                ns.getServerSecurityLevel(target) -
-                ns.getServerMinSecurityLevel(target)
-            ).toPrecision(2);
-
+            available_ram =
+                ns.getServerMaxRam(host) - ns.getServerUsedRam(host);
+            threads = Math.floor(available_ram / 1.8); //initial thread estimate
             if (k) {
                 continue; // kill command sent, don't run other processes
             }
             //select the appropriate script
-            if (security_delta > security_threshold) {
-                // await log_to_file(
-                //     ns,
-                //     `${host} : security level not low enough ${security_delta} - running weaken`,
-                //     log
-                // );
-
+            if (
+                security_delta > security_threshold &&
+                threads * 0.05 < security_delta
+            ) {
                 script = 'weaken.script';
-            } else if (money_percent > money_threshold) {
-                // await log_to_file(
-                //     ns,
-                //     `${host} : money too low ${money_percent}  - running grow`,
-                //     log
-                // );
+                security_delta -= threads * 0.05;
+            } else if (money_percent < money_threshold) {
                 script = 'grow.script';
             } else {
-                // await log_to_file(`${host} - running hacking`, log);
                 script = 'hack.script';
             }
 
             // determine the number of times the script can be run
-            // if (!host == 'home') {
-            threads = Math.floor(
-                (ns.getServerMaxRam(host) - ns.getServerUsedRam(host)) /
-                    ns.getScriptRam(script, host)
-            );
+            threads = Math.floor(available_ram / ns.getScriptRam(script, host));
 
+            // leave ram free on home
             if (host == 'home') {
                 threads = Math.floor(
-                    (ns.getServerMaxRam(host) -
-                        ns.getServerUsedRam(host) -
-                        10) /
-                        ns.getScriptRam(script, host)
+                    (available_ram - 10) / ns.getScriptRam(script, host)
                 );
-            }
-
-            if (script == 'weaken.script') {
-                // }
-                // } else {
-                //     threads = Math.floor(
-                //         (ns.getServerMaxRam(host) -
-                //             ns.getServerUsedRam(host) -
-                //             10) /
-                //             ns.getScriptRam(script, host)
-                //     );
-                // }
-
-                if (threads * 0.05 > security_delta) {
-                    // await log_to_file(
-                    //     host,
-                    //     ' would over weaken, running hack instead'
-                    // );
-                    script = 'hack.script';
-                }
             }
 
             // deploy script to server
@@ -159,9 +126,7 @@ export async function main(ns) {
                     ns,
                     `${host}        ${
                         script.split('.')[0]
-                    } $:${money_percent}% ${
-                        money_percent < money_threshold
-                    } Sec:${security_delta} T:${threads}`,
+                    } $:${money_percent}% Sec:${security_delta} T:${threads}`,
                     log
                 );
 
