@@ -12,11 +12,11 @@ export async function log_to_file(ns, data, enabled) {
 }
 
 export function check_and_get_access(ns, target) {
-    let num_ports_req = ns.getServerNumPortsRequired(target);
-    let num_ports_avail = 0;
-    if (target == 'home') {
+    if (ns.hasRootAccess(target)) {
         return true;
     }
+    let num_ports_req = ns.getServerNumPortsRequired(target);
+    let num_ports_avail = 0;
     if (ns.fileExists('brutessh.exe', 'home')) {
         ns.brutessh(target);
         num_ports_avail += 1;
@@ -40,8 +40,7 @@ export function select_best_target(ns, hosts) {
 
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
-    var hosts = run_scan(ns, 'home', 3), // build an array of directly and indirectly connected hosts
-        ignored_hosts = ['CSEC'],
+    let ignored_hosts = ['CSEC'],
         security_threshold = 0,
         money_threshold = 80,
         script = '',
@@ -50,8 +49,6 @@ export async function main(ns) {
         money_percent = 0,
         available_ram = 0,
         log = true;
-
-    hosts = hosts.filter((host) => !ignored_hosts.includes(host));
 
     // if (!ns.args[0]) {
     //     log = false;
@@ -65,12 +62,14 @@ export async function main(ns) {
         // if kill argument then shut down all active programs via a kill all
         var k = true;
     }
-    hosts.push('home');
     if (log) {
         ns.rm(ns.getScriptName().split('.')[0], 'home');
     }
 
     while (true) {
+        let hosts = run_scan(ns, 'home', 3); // build an array of directly and indirectly connected hosts
+        hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
+        hosts.push('home');
         let target = select_best_target(ns, hosts);
         security_delta = (
             ns.getServerSecurityLevel(target) -
