@@ -1,12 +1,10 @@
 /** @param {NS} ns **/
 import { run_scan } from 'depthscanner.js';
 
-export async function log_to_file(ns, data, enabled) {
-    if (!enabled) {
-        return;
-    }
+export async function log_to_file(ns, data) {
     let filename = ns.getScriptName().split('.')[0];
-    filename = 'log_' + filename + '.txt';
+    filename = 'log_csv_' + filename + '.txt';
+    data = data.join(', ');
     await ns.write(filename, data);
     await ns.write(filename, '\r\n');
 }
@@ -15,8 +13,8 @@ export function check_and_get_access(ns, target) {
     if (ns.hasRootAccess(target)) {
         return true;
     }
-    let num_ports_req = ns.getServerNumPortsRequired(target);
-    let num_ports_avail = 0;
+    let num_ports_req = ns.getServerNumPortsRequired(target),
+        num_ports_avail = 0;
     if (ns.fileExists('brutessh.exe', 'home')) {
         ns.brutessh(target);
         num_ports_avail += 1;
@@ -38,6 +36,13 @@ export function select_best_target(ns, hosts) {
     return 'phantasy';
 }
 
+export function find_hosts(ns, ignored_hosts) {
+    let hosts = run_scan(ns, 'home', 3); // build an array of directly and indirectly connected hosts
+    hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
+    hosts.push('home');
+    return hosts;
+}
+
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     let ignored_hosts = ['CSEC'],
@@ -46,15 +51,11 @@ export async function main(ns) {
         script = '',
         threads = 0,
         security_delta = 0,
+        security_delta_predict = 0,
         money_percent = 0,
+        money_percent_predict = 0,
         available_ram = 0,
         log = true;
-
-    // if (!ns.args[0]) {
-    //     log = false;
-    // } else if (ns.args[0] == 'log') {
-    //     log = true;
-    // }
 
     if (ns.args[0] == 'log') {
         log = true;
@@ -66,15 +67,23 @@ export async function main(ns) {
         ns.rm(ns.getScriptName().split('.')[0], 'home');
     }
 
+    //print out headers
+    await log_to_file(ns, [
+        'host',
+        'script',
+        'money_percent',
+        'security_delta',
+        'threads',
+    ]);
+
     while (true) {
-        let hosts = run_scan(ns, 'home', 3); // build an array of directly and indirectly connected hosts
-        hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
-        hosts.push('home');
+        let hosts = find_hosts(ns, ignored_hosts);
         let target = select_best_target(ns, hosts);
         security_delta = (
             ns.getServerSecurityLevel(target) -
             ns.getServerMinSecurityLevel(target)
         ).toPrecision(2);
+
         for (let host of hosts) {
             // loop over each host
             await ns.sleep(500);
@@ -121,14 +130,13 @@ export async function main(ns) {
             }
             // execute script
             if (threads > 0) {
-                await log_to_file(
-                    ns,
-                    `${host}        ${
-                        script.split('.')[0]
-                    } $:${money_percent}% Sec:${security_delta} T:${threads}`,
-                    log
-                );
-
+                await log_to_file(ns, [
+                    host,
+                    script.split('.')[0],
+                    money_percent,
+                    security_delta,
+                    threads,
+                ]);
                 ns.exec(script, host, threads, target); // run the script}
             }
         }
