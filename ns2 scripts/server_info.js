@@ -2,6 +2,29 @@
 import { run_scan } from 'depthscanner.js';
 import { table } from 'table_display.js';
 
+export function calc_growth_amount(ns, target) {
+    let money_filled_percent =
+            ns.getServerMoneyAvailable(target) / ns.getServerMaxMoney(target),
+        multiplier_to_full = Math.ceil(1 / money_filled_percent);
+
+    if (multiplier_to_full > 1 && multiplier_to_full != Infinity) {
+        return Math.ceil(ns.growthAnalyze(target, multiplier_to_full));
+    } else {
+        return NaN;
+    }
+
+    // growths_required = ns.growthAnalyze(
+
+    return Multiplier_to_full;
+    // return ns.growthAnalyze(
+    //     target,if () {
+    //     }
+    //     Math.ceil(
+    //         1 /
+    //     ),
+    //     1
+}
+
 export function get_server_info(ns, target, type = 'all') {
     // returns an object containing the targets info
     // objects format is key : string_name, computed result
@@ -10,7 +33,7 @@ export function get_server_info(ns, target, type = 'all') {
     let server_info = {
         security: [
             'Sec curr / min',
-            ns.getServerSecurityLevel(target).toPrecision(2) +
+            ns.getServerSecurityLevel(target).toPrecision(4) +
                 ' / ' +
                 ns.getServerMinSecurityLevel(target).toPrecision(2),
         ],
@@ -32,7 +55,7 @@ export function get_server_info(ns, target, type = 'all') {
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
                 100
-            ).toPrecision(4),
+            ).toPrecision(3),
         ],
         hack_money_per_sec: [
             'Hack $/s',
@@ -52,6 +75,22 @@ export function get_server_info(ns, target, type = 'all') {
             'Skill required',
             ns.getServerRequiredHackingLevel(target),
         ],
+        security_delta: [
+            'Security Delta',
+            (
+                ns.getServerSecurityLevel(target) -
+                ns.getServerMinSecurityLevel(target)
+            ).toPrecision(3),
+        ],
+        weakens_required: [
+            'weakens required',
+            Math.ceil(
+                (ns.getServerSecurityLevel(target) -
+                    ns.getServerMinSecurityLevel(target)) /
+                    0.05
+            ),
+        ],
+        growths_required: ['growths required', calc_growth_amount(ns, target)],
     };
     if (type == 'all') {
         return server_info;
@@ -68,6 +107,15 @@ export function get_server_info(ns, target, type = 'all') {
                 'hack_skill',
             ];
         }
+        if (type == 'predict') {
+            types = [
+                'security_delta',
+                'weakens_required',
+                'money_percent',
+                'growths_required',
+            ];
+        }
+
         for (let x of types) {
             let temp_obj = {};
             temp_obj[x] = server_info[x];
