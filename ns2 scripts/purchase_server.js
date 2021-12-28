@@ -23,7 +23,7 @@ function calc_server_costs(ns, limit) {
 function buy_best_server(ns, player_money, name) {
     let server_costs = calc_server_costs(ns, 20),
         best_server_ram = 0,
-        log = true;
+        log = false;
 
     for (let server of server_costs) {
         if (server[1] > player_money) {
@@ -39,11 +39,18 @@ function buy_best_server(ns, player_money, name) {
         }
     }
     // ns.tprint(name, '   ', best_server_ram);
-    ns.tprint(ns.purchaseServer(name, best_server_ram));
+    ns.tprint(
+        'buying new server - ram:',
+        best_server_ram,
+        ', name : ',
+        name,
+        ', status: ',
+        ns.purchaseServer(name, best_server_ram)
+    );
 }
 export async function main(ns) {
     // show_server_costs(ns, 6);
-    ns.tail();
+    // ns.tail();
     let player_money = ns.getServerMoneyAvailable('home'),
         max_servers = ns.getPurchasedServerLimit(),
         purchased_servers = ns.getPurchasedServers(),
