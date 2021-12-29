@@ -12,17 +12,14 @@ export function calc_growth_amount(ns, target) {
     } else {
         return NaN;
     }
-
-    // growths_required = ns.growthAnalyze(
-
-    return Multiplier_to_full;
-    // return ns.growthAnalyze(
-    //     target,if () {
-    //     }
-    //     Math.ceil(
-    //         1 /
-    //     ),
-    //     1
+}
+export function calc_weaken_amount(ns, target) {
+    let weakens = Math.ceil(
+        (ns.getServerSecurityLevel(target) -
+            ns.getServerMinSecurityLevel(target)) /
+            0.05
+    );
+    return weakens;
 }
 
 export function get_server_info(ns, target, type = 'all') {
@@ -82,14 +79,7 @@ export function get_server_info(ns, target, type = 'all') {
                 ns.getServerMinSecurityLevel(target)
             ).toPrecision(3),
         ],
-        weakens_required: [
-            'weakens required',
-            Math.ceil(
-                (ns.getServerSecurityLevel(target) -
-                    ns.getServerMinSecurityLevel(target)) /
-                    0.05
-            ),
-        ],
+        weakens_required: ['weakens required', calc_weaken_amount(ns, target)],
         growths_required: ['growths required', calc_growth_amount(ns, target)],
     };
     if (type == 'all') {
