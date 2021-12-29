@@ -22,6 +22,16 @@ export function calc_weaken_amount(ns, target) {
     return weakens;
 }
 
+export function calc_hack_amount(ns, target, percent_amount) {
+    let current = ns.getServerMoneyAvailable(target),
+        hack_threads = ns.hackAnalyzeThreads(target, current / 2);
+    if (hack_threads == 'Infinity') {
+        return NaN;
+    } else {
+        return Math.ceil(hack_threads);
+    }
+}
+
 export function get_server_info(ns, target, type = 'all') {
     // returns an object containing the targets info
     // objects format is key : string_name, computed result
@@ -81,6 +91,7 @@ export function get_server_info(ns, target, type = 'all') {
         ],
         weakens_required: ['weakens required', calc_weaken_amount(ns, target)],
         growths_required: ['growths required', calc_growth_amount(ns, target)],
+        hacks_required: ['hack to 50%', calc_hack_amount(ns, target, 50)],
     };
     if (type == 'all') {
         return server_info;
@@ -103,6 +114,7 @@ export function get_server_info(ns, target, type = 'all') {
                 'weakens_required',
                 'money_percent',
                 'growths_required',
+                'hacks_required',
             ];
         }
 
