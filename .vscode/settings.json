@@ -6,6 +6,9 @@
         "depthscanner",
         "foodnstuff",
         "ftpcrack",
+        "httpworm",
+        "relaysmtp",
+        "sqlinject",
         "tprint"
     ]
 }
