@@ -25,8 +25,7 @@ export async function write_csv(ns, data, filename_mod = '') {
     filename = filename_mod + 'log_csv_' + filename + '.txt';
     data.unshift(timestamp);
     data = data.join(', ');
-    await ns.write(filename, data);
-    await ns.write(filename, '\r\n');
+    await ns.write(filename, data + '\r\n');
     return;
 }
 
@@ -76,8 +75,8 @@ export function build_targets_object(ns, hosts) {
     return output_object;
 }
 
-export function find_hosts(ns, ignored_hosts = false) {
-    let hosts = run_scan(ns, 'home', 5); // build an array of directly and indirectly connected hosts
+export function find_hosts(ns, ignored_hosts = false, depth = 1) {
+    let hosts = run_scan(ns, 'home', depth); // build an array of directly and indirectly connected hosts
     hosts.push('home');
     if (ignored_hosts) {
         hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
@@ -127,10 +126,10 @@ export async function run_script(ns, target, script, threads, debug) {
             continue;
         }
         // deploy script to server
-        // if (!ns.fileExists(script, server)) {
-        await debug_log(ns, ['scp script', script, 'to', server], debug);
-        await ns.scp(script, 'home', server);
-        // }
+        if (!ns.fileExists(script, server)) {
+            // await debug_log(ns, ['scp script', script, 'to', server], debug);
+            await ns.scp(script, 'home', server);
+        }
         if (!check_and_get_access(ns, target)) {
             continue;
         }
@@ -148,6 +147,24 @@ export async function run_script(ns, target, script, threads, debug) {
     return;
 }
 
+export async function write_headers(ns, debug) {
+    //print out headers
+    await csv_log(
+        ns,
+        [
+            'target',
+            'script',
+            'threads',
+            'active_weakens',
+            'active_grows',
+            'active_hacks',
+            'security_delta',
+            'money_percent',
+        ],
+        debug
+    );
+}
+
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     // ns.tail();
@@ -161,46 +178,34 @@ export async function main(ns) {
         available_ram = 0,
         debug = true,
         log_details = [],
+        depth = 1,
         hosts = find_hosts(ns, ignored_hosts);
 
-    //print out headers
-    await csv_log(ns, ['--------------------------------------------'], debug);
-    await csv_log(ns, ['------------ Script starting up-------------'], debug);
-    await csv_log(ns, ['--------------------------------------------'], debug);
-    await csv_log(
-        ns,
-        [
-            'target',
-            'script',
-            'threads',
-            'current',
-            'security_delta',
-            'money_percent',
-        ],
-        debug
-    );
     let targets = build_targets_object(ns, hosts);
+    await write_headers(ns, debug);
 
     while (true) {
         hosts = find_hosts(ns, ignored_hosts);
-        await debug_log(ns, ['hosts: ', ...hosts], debug);
         for (let target in targets) {
             // loop over each target
             await ns.sleep(500);
             let [security_delta, money_percent] = get_target_info(ns, target);
+            log_details = [
+                target,
+                'action',
+                'requirement',
+                targets[target],
+                security_delta,
+                money_percent,
+            ];
 
-            // if security is too high and no active weaken tasks
+            // if security is too high
             if (security_delta > 0) {
+                // if no active weaken tasks
                 if (targets[target][0] == 0) {
                     let weakens_required = calc_weaken_amount(ns, target);
-                    log_details = [
-                        target,
-                        'weaken',
-                        weakens_required,
-                        targets[target],
-                        security_delta,
-                        money_percent,
-                    ];
+                    log_details[1] = 'run weaken';
+                    log_details[2] = weakens_required;
                     await csv_log(ns, log_details, debug);
                     await run_script(
                         ns,
@@ -211,66 +216,37 @@ export async function main(ns) {
                     );
                     targets[target] = [weakens_required, 0, 0];
                 } else {
-                    await debug_log(
-                        ns,
-                        [
-                            target,
-                            'security too high:',
-                            security_delta,
-                            'weaken already being run',
-                            targets[target],
-                        ],
-                        debug
-                    );
+                    log_details[1] = "can't run weaken";
+                    log_details[2] = 'weakens already running';
+
+                    await debug_log(ns, log_details, debug);
                 }
             } else if (money_percent < 100) {
                 if (targets[target][1] == 0) {
                     //if money too low and now active grows running
                     let grows_required = calc_growth_amount(ns, target);
-                    log_details = [
-                        target,
-                        'grow',
-                        grows_required,
-                        targets[target],
-                        security_delta,
-                        money_percent,
-                    ];
+                    log_details[1] = 'run grow';
+                    log_details[2] = grows_required;
                     await csv_log(ns, log_details, debug);
                     await run_script(ns, target, 'grow', grows_required);
                     targets[target] = [0, grows_required, 0];
                 } else {
-                    await debug_log(
-                        ns,
-                        [
-                            target,
-                            'money too low:',
-                            money_percent,
-                            'grow already being run',
-                            targets[target],
-                        ],
-                        debug
-                    );
+                    log_details[1] = "can't run grow";
+                    log_details[2] = 'grow already running';
+                    await debug_log(ns, log_details, debug);
                 }
             } else {
                 if (targets[target][2] == 0) {
                     let hacks_required = calc_hack_amount(ns, target, 90);
-                    log_details = [
-                        target,
-                        'hack',
-                        hacks_required,
-                        targets[target],
-                        security_delta,
-                        money_percent,
-                    ];
+                    log_details[1] = 'run hack';
+                    log_details[2] = hacks_required;
                     await csv_log(ns, log_details, debug);
                     await run_script(ns, target, 'hack', hacks_required);
                     targets[target] = [0, 0, hacks_required];
                 } else {
-                    await debug_log(
-                        ns,
-                        [target, 'hack already being run', targets[target]],
-                        debug
-                    );
+                    log_details[1] = "can't run hack";
+                    log_details[2] = 'hacks already running';
+                    await debug_log(ns, log_details, debug);
                 }
             }
         }
