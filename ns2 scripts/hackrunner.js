@@ -85,6 +85,31 @@ export function find_hosts(ns, ignored_hosts = false, depth = 1) {
     return hosts;
 }
 
+function build_hosts_and_targets(
+    ns,
+    ignored_hosts,
+    depth,
+    host_selection,
+    target_selection
+) {
+    let log_string = [];
+    let hosts = find_hosts(ns, ignored_hosts, depth);
+    let targets = build_targets_object(ns, hosts);
+    if (host_selection.length > 0) {
+        hosts = host_selection;
+        log_string[0] = 'manual host mode on, ';
+    }
+
+    if (target_selection.length > 0) {
+        targets = build_targets_object(ns, target_selection);
+        log_string[1] = 'manual target mode on, ';
+    }
+
+    ns.tprint(log_string[0], 'building hosts', hosts);
+    ns.tprint(log_string[1], 'building targets', targets);
+    return [hosts, targets];
+}
+
 export function get_target_info(ns, target) {
     let security_delta = (
             ns.getServerSecurityLevel(target) -
@@ -99,9 +124,8 @@ export function get_target_info(ns, target) {
     return [security_delta, money_percent];
 }
 
-export async function run_script(ns, target, script, threads, debug) {
-    let servers = find_hosts(ns),
-        reserved_ram = 10,
+export async function run_script(ns, target, script, threads, hosts, debug) {
+    let reserved_ram = 10,
         attempts = 8;
     script += '.js';
     if (threads < 1 || isNaN(threads)) {
@@ -117,7 +141,7 @@ export async function run_script(ns, target, script, threads, debug) {
     }
     while (attempts > 1) {
         let required_ram = ns.getScriptRam(script) * threads;
-        for (let server of servers) {
+        for (let server of hosts) {
             if (!check_and_get_access(ns, server)) {
                 continue;
             }
@@ -170,24 +194,6 @@ export async function write_headers(ns, debug) {
     );
 }
 
-function build_hosts_and_targets(
-    ns,
-    ignored_hosts,
-    depth,
-    single_host,
-    single_target
-) {
-    let hosts = find_hosts(ns, ignored_hosts, depth);
-    let targets = build_targets_object(ns, hosts);
-    if (single_host) {
-        hosts = single_host;
-    }
-    if (single_target) {
-        targets = build_targets_object(ns, single_target);
-    }
-    return [hosts, targets];
-}
-
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     // ns.tail();
@@ -199,21 +205,21 @@ export async function main(ns) {
         current_threads = 0,
         debug = true,
         log_details = [],
-        single_host = '',
-        single_target = '';
+        //allows manual entering of hosts and targets
+        host_selection = ['cloud_6'],
+        target_selection = ['n00dles'];
 
     let [hosts, targets] = build_hosts_and_targets(
         ns,
         ignored_hosts,
         depth,
-        single_host,
-        single_target
+        host_selection,
+        target_selection
     );
 
     await write_headers(ns, debug);
 
     while (true) {
-        hosts = find_hosts(ns, ignored_hosts);
         for (let target in targets) {
             // loop over each target
             await ns.sleep(500);
@@ -238,6 +244,7 @@ export async function main(ns) {
                         target,
                         'weaken',
                         launch_threads,
+                        hosts,
                         debug
                     );
                     log_details[1] = 'run weaken';
@@ -260,6 +267,7 @@ export async function main(ns) {
                         target,
                         'grow',
                         launch_threads,
+                        hosts,
                         debug
                     );
                     log_details[1] = 'run grow';
@@ -286,6 +294,7 @@ export async function main(ns) {
                         target,
                         'hack',
                         hacks_required,
+                        hosts,
                         debug
                     );
 
