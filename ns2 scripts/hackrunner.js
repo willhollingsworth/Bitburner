@@ -65,10 +65,17 @@ export function check_and_get_access(ns, target) {
     }
 }
 
-export function build_targets_object(ns, hosts) {
+export function build_targets_object(ns, ignored_targets, depth) {
     let output_object = {};
+    let hosts = run_scan(ns, 'home', depth);
+    if (ignored_targets) {
+        hosts = hosts.filter((host) => !ignored_targets.includes(host)); //filter unwanted hosts
+    }
     hosts = hosts.filter(
-        (host) => ns.getServerMoneyAvailable(host) > 1 && host != 'home'
+        (host) =>
+            ns.getServerMoneyAvailable(host) > 1 &&
+            host != 'home' &&
+            ns.getServerRequiredHackingLevel(host) < ns.getHackingLevel()
     );
     for (let host of hosts) {
         output_object[host] = [0, 0, 0];
@@ -82,31 +89,39 @@ export function find_hosts(ns, ignored_hosts = false, depth = 1) {
     if (ignored_hosts) {
         hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
     }
+    hosts = hosts.filter(
+        (host) => check_and_get_access(ns, host) && ns.getServerMaxRam(host) > 0
+    );
     return hosts;
 }
 
 function build_hosts_and_targets(
     ns,
     ignored_hosts,
+    ignored_targets,
     depth,
     host_selection,
     target_selection
 ) {
     let log_string = [];
     let hosts = find_hosts(ns, ignored_hosts, depth);
-    let targets = build_targets_object(ns, hosts);
+    let targets = build_targets_object(ns, ignored_targets, depth);
     if (host_selection.length > 0) {
         hosts = host_selection;
         log_string[0] = 'manual host mode on, ';
+    } else {
+        log_string[0] = '';
     }
 
     if (target_selection.length > 0) {
         targets = build_targets_object(ns, target_selection);
         log_string[1] = 'manual target mode on, ';
+    } else {
+        log_string[1] = '';
     }
 
-    ns.tprint(log_string[0], 'building hosts', hosts);
-    ns.tprint(log_string[1], 'building targets', targets);
+    ns.tprint(log_string[0], 'building hosts', hosts.sort());
+    ns.tprint(log_string[1], 'building targets', Object.keys(targets).sort());
     return [hosts, targets];
 }
 
@@ -126,7 +141,7 @@ export function get_target_info(ns, target) {
 
 export async function run_script(ns, target, script, threads, hosts, debug) {
     let reserved_ram = 10,
-        attempts = 8;
+        attempts = 16;
     script += '.js';
     if (threads < 1 || isNaN(threads)) {
         ns.tprint(
@@ -197,21 +212,23 @@ export async function write_headers(ns, debug) {
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     // ns.tail();
-    let ignored_hosts = ['CSEC'],
+    let ignored_hosts = [],
+        ignored_targets = ['CSEC'],
         hack_drain_amount = 90, //amount to drain when running a hack operation
-        depth = 4, //depth of scanning
+        depth = 5, //depth of scanning
         threads = 0,
         launch_threads = 0,
         current_threads = 0,
         debug = true,
         log_details = [],
         //allows manual entering of hosts and targets
-        host_selection = ['cloud_6'],
-        target_selection = ['n00dles'];
+        host_selection = [],
+        target_selection = [];
 
     let [hosts, targets] = build_hosts_and_targets(
         ns,
         ignored_hosts,
+        ignored_targets,
         depth,
         host_selection,
         target_selection
@@ -236,8 +253,8 @@ export async function main(ns) {
             if (security_delta > 0) {
                 // if no active weaken tasks
                 let weakens_required = calc_weaken_amount(ns, target);
-                if (targets[target][0] < weakens_required) {
-                    current_threads = targets[target][0];
+                current_threads = targets[target][0];
+                if (current_threads < weakens_required) {
                     launch_threads = weakens_required - current_threads;
                     threads = await run_script(
                         ns,
@@ -259,8 +276,8 @@ export async function main(ns) {
                 }
             } else if (money_percent < 100) {
                 let grows_required = calc_growth_amount(ns, target);
-                if (targets[target][1] < grows_required) {
-                    current_threads = targets[target][1];
+                current_threads = targets[target][1];
+                if (current_threads < grows_required) {
                     launch_threads = grows_required - current_threads;
                     threads = await run_script(
                         ns,
@@ -286,8 +303,8 @@ export async function main(ns) {
                     target,
                     hack_drain_amount
                 );
-                if (targets[target][2] < hacks_required) {
-                    current_threads = targets[target][2];
+                current_threads = targets[target][2];
+                if (current_threads < hacks_required) {
                     launch_threads = hacks_required - current_threads;
                     threads = await run_script(
                         ns,
