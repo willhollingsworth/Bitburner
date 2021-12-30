@@ -170,25 +170,46 @@ export async function write_headers(ns, debug) {
     );
 }
 
+function build_hosts_and_targets(
+    ns,
+    ignored_hosts,
+    depth,
+    single_host,
+    single_target
+) {
+    let hosts = find_hosts(ns, ignored_hosts, depth);
+    let targets = build_targets_object(ns, hosts);
+    if (single_host) {
+        hosts = single_host;
+    }
+    if (single_target) {
+        targets = build_targets_object(ns, single_target);
+    }
+    return [hosts, targets];
+}
+
 export async function main(ns) {
     // var hosts = ns.scan(ns.getHostname()); // build an array of directly connected hosts
     // ns.tail();
     let ignored_hosts = ['CSEC'],
-        security_threshold = 0,
-        money_threshold = 80,
-        script = '',
+        hack_drain_amount = 90, //amount to drain when running a hack operation
+        depth = 4, //depth of scanning
         threads = 0,
         launch_threads = 0,
         current_threads = 0,
-        security_delta_predict = 0,
-        money_percent_predict = 0,
-        available_ram = 0,
         debug = true,
         log_details = [],
-        depth = 1,
-        hosts = find_hosts(ns, ignored_hosts);
+        single_host = '',
+        single_target = '';
 
-    let targets = build_targets_object(ns, hosts);
+    let [hosts, targets] = build_hosts_and_targets(
+        ns,
+        ignored_hosts,
+        depth,
+        single_host,
+        single_target
+    );
+
     await write_headers(ns, debug);
 
     while (true) {
@@ -252,7 +273,11 @@ export async function main(ns) {
                     await debug_log(ns, log_details, debug);
                 }
             } else {
-                let hacks_required = calc_hack_amount(ns, target, 90);
+                let hacks_required = calc_hack_amount(
+                    ns,
+                    target,
+                    hack_drain_amount
+                );
                 if (targets[target][2] < hacks_required) {
                     current_threads = targets[target][2];
                     launch_threads = hacks_required - current_threads;
