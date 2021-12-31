@@ -27,12 +27,19 @@ export function run_scan(ns, host = 'home', depth = 1) {
 }
 
 export async function main(ns) {
-    // https://bitburner.readthedocs.io/en/latest/netscript/netscriptjs.html
+    let depth = 2,
+        args = ns.args[0],
+        scan_results = 0;
 
-    // ns.tprint(run_scan());
-    // ns.tprint(run_scan('zer0'));
-    // ns.tprint(run_scan(ns, ns.args[0], ns.args[1]));
-    ns.tprint(run_scan(ns));
+    if (args) {
+        depth = args;
+    }
+
+    scan_results = run_scan(ns, 'home', depth);
+    ns.tprint('scan ran with depth : ', depth);
+    ns.tprint('results : ', scan_results.length);
+    ns.tprint(scan_results);
+
     // ns.tprint(scan_hosts(new_targets));
     // ns.tprint(hosts);
 }
