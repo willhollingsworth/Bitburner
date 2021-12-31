@@ -158,19 +158,16 @@ export function scan_hosts(ns, hosts, type) {
 
 export function main(ns) {
     //setup args
-    let depth = 0,
-        type = '';
-    if (!ns.args[0]) {
-        depth = 2;
-    } else {
+    let depth = 2,
+        type = 'standard';
+    if (ns.args[0]) {
         depth = ns.args[0];
     }
-    if (!ns.args[1]) {
-        ns.tprint('no types detected');
-        type = 'standard';
-    } else {
+    if (ns.args[1]) {
         type = ns.args[1];
         ns.tprint('type detected - ', ns.args[1]);
+    } else {
+        ns.tprint('no types detected');
     }
     // ns.tprint('running scan with a depth of ', depth);
     //
