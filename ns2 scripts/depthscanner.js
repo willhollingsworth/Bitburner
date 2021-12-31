@@ -15,13 +15,19 @@ export function return_new_neighbors(ns, hosts) {
     return output;
 }
 
+function debug_print(ns, data, debug) {
+    if (debug) {
+        ns.tprint(data);
+    }
+}
+
 export function run_scan(ns, host = 'home', depth = 1, debug = false) {
     var hosts = ns.scan(host);
-    ns.tprint('first scan hosts : ', hosts.length);
+    debug_print(ns, 'first scan hosts : ' + hosts.length, debug);
     for (var i of [...Array(depth - 1).keys()]) {
         // ns.tprint('loop ', i, ', hosts ', hosts);
         hosts = return_new_neighbors(ns, hosts).concat(hosts);
-        ns.tprint('iter : ', i, ' hosts : ', hosts.length);
+        debug_print(ns, 'iter : ' + i + ' hosts : ' + hosts.length, debug);
     }
 
     // ns.tprint('scan run from ' + host + ', d:' + depth + ', result: ' + hosts);
