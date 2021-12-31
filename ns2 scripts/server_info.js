@@ -110,6 +110,7 @@ export function get_server_info(ns, target, type = 'all') {
         }
         if (type == 'predict') {
             types = [
+                'hack_skill',
                 'security_delta',
                 'weakens_required',
                 'money_percent',
@@ -138,19 +139,31 @@ export function build_headers(ns, type) {
 }
 
 export function scan_hosts(ns, hosts, type) {
-    let hosts_data = [];
+    let hosts_data = [],
+        sort_column = 1;
     for (let target of hosts) {
         // loop over each host
         let host_data = get_server_info(ns, target, type), // grab their info
             output_data = [];
+        if (type == 'predict') {
+            // don't return servers you can't hack
+            if (host_data.money_percent[1] == 'NaN') {
+                continue;
+            }
+            sort_column = 1;
+        }
+        if (type == 'standard') {
+            sort_column = 3;
+        }
         for (let x of Object.values(host_data)) {
             // split the needed info into a list
             output_data.push(x[1]);
         }
-        hosts_data.push([target, ...output_data]);
+        hosts_data.push([target, ...output_data]); // amend all host data to the end of the list
         // table(ns, [target, ...output_data]); // print the info
     }
-    hosts_data.sort((a, b) => b[3] - a[3]);
+
+    hosts_data.sort((a, b) => b[sort_column] - a[sort_column]);
     for (let x of hosts_data) {
         table(ns, x);
     }
