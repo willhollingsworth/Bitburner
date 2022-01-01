@@ -5,6 +5,7 @@ import {
     calc_growth_amount,
     calc_hack_amount,
 } from 'server_info.js';
+import { table } from 'table_display.js';
 
 export async function csv_log(ns, data, debug) {
     await write_csv(ns, data);
@@ -20,11 +21,12 @@ export async function debug_log(ns, data, debug) {
 }
 
 export async function write_csv(ns, data, filename_mod = '') {
-    let output = data,
+    let output = '',
         filename = ns.getScriptName().split('.')[0],
         timestamp = Date().split(' ')[4];
     filename = filename_mod + 'log_csv_' + filename + '.txt';
-    output.unshift(timestamp);
+    // output.unshift(timestamp);
+    output = [timestamp].concat(data);
     output = output.join(', ');
     await ns.write(filename, output + '\r\n');
     return;
@@ -79,58 +81,6 @@ export function get_target_info(ns, target) {
     return [security_delta, money_percent];
 }
 
-export async function run_script(ns, target, script, threads, hosts, debug) {
-    let reserved_ram = 10,
-        attempts = 16;
-    script += '.js';
-    if (threads < 1 || isNaN(threads)) {
-        ns.tprint(
-            'run script function fed NaN, target:',
-            target,
-            ' , script: ',
-            script,
-            ' , threads: ',
-            threads
-        );
-        return;
-    }
-    while (attempts > 1) {
-        let required_ram = ns.getScriptRam(script) * threads;
-        for (let server of hosts) {
-            if (!check_and_get_access(ns, server)) {
-                continue;
-            }
-            let free_ram =
-                ns.getServerMaxRam(server) - ns.getServerUsedRam(server);
-            if (server == 'host') {
-                free_ram -= reserved_ram;
-            }
-            if (free_ram < required_ram) {
-                continue;
-            }
-            // deploy script to server
-            if (!ns.fileExists(script, server)) {
-                // await debug_log(ns, ['scp script', script, 'to', server], debug);
-                await ns.scp(script, 'home', server);
-            }
-            if (!check_and_get_access(ns, target)) {
-                continue;
-            }
-            ns.exec(script, server, threads, target);
-            return threads;
-        }
-        attempts -= 1;
-        threads = Math.floor(threads / 2);
-    }
-    await csv_log(
-        ns,
-        [target, 'unable to run', script, threads, attempts],
-        debug
-    );
-    ns.tprint('failed to run -> ', script, 'x', threads, ' -> ', target);
-    return;
-}
-
 export async function write_headers(ns, debug) {
     //print out headers
     await csv_log(
@@ -172,9 +122,9 @@ export class Runner {
         this.ns = ns;
     }
 
-    debug_printer(...data) {
-        this.ns.tprint(...data);
-        if (this.debug) {
+    debug_printer(data) {
+        if (this.options.debug) {
+            table(this.ns, data, 30);
         }
     }
     build_hosts_list() {
@@ -268,25 +218,19 @@ export class Runner {
             // if no active weaken tasks
             let weakens_required = calc_weaken_amount(this.ns, target);
             current_threads = targets[target][0];
+
             if (current_threads < weakens_required) {
                 launch_threads = weakens_required - current_threads;
-                threads = await run_script(
-                    this.ns,
-                    target,
-                    'weaken',
-                    launch_threads,
-                    hosts,
-                    debug
-                );
+                threads = await this.run_script('weaken', launch_threads);
+                targets[target] = [current_threads + threads, 0, 0];
                 log_details[1] = 'run weaken';
                 log_details[2] = threads;
-                targets[target] = [current_threads + threads, 0, 0];
                 log_details[3] = targets[target];
                 await csv_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             } else {
-                log_details[1] = "can't run weaken";
-                log_details[2] = 'weakens already running';
+                log_details[1] = 'weakens already';
+                log_details[2] = 'running';
                 await debug_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             }
@@ -295,14 +239,7 @@ export class Runner {
             current_threads = targets[target][1];
             if (current_threads < grows_required) {
                 launch_threads = grows_required - current_threads;
-                threads = await run_script(
-                    this.ns,
-                    target,
-                    'grow',
-                    launch_threads,
-                    hosts,
-                    debug
-                );
+                threads = await this.run_script('grow', launch_threads);
                 log_details[1] = 'run grow';
                 log_details[2] = threads;
                 targets[target] = [0, current_threads + threads, 0];
@@ -310,8 +247,8 @@ export class Runner {
                 await csv_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             } else {
-                log_details[1] = "can't run grow";
-                log_details[2] = 'grow already running';
+                log_details[1] = 'grow';
+                log_details[2] = 'already running';
                 await debug_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             }
@@ -324,14 +261,7 @@ export class Runner {
             current_threads = targets[target][2];
             if (current_threads < hacks_required) {
                 launch_threads = hacks_required - current_threads;
-                threads = await run_script(
-                    this.ns,
-                    target,
-                    'hack',
-                    hacks_required,
-                    hosts,
-                    debug
-                );
+                threads = await this.run_script('hack', launch_threads);
 
                 log_details[1] = 'run hack';
                 log_details[2] = threads;
@@ -340,14 +270,69 @@ export class Runner {
                 await csv_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             } else {
-                log_details[1] = "can't run hack";
-                log_details[2] = 'hacks already running';
+                log_details[1] = 'hack';
+                log_details[2] = 'already running';
                 await debug_log(this.ns, log_details, debug);
                 this.debug_printer(log_details);
             }
         }
     }
+    async run_script(script, threads) {
+        let reserved_ram = 10,
+            attempts = 16,
+            target = this.current_target,
+            hosts = this.hosts;
+
+        script += '.js';
+        if (threads < 1 || isNaN(threads)) {
+            this.ns.tprint('run script failed', target, script);
+            return;
+        }
+        while (attempts > 1) {
+            let required_ram = this.ns.getScriptRam(script) * threads;
+            for (let server of hosts) {
+                if (!check_and_get_access(this.ns, server)) {
+                    continue;
+                }
+                let free_ram =
+                    this.ns.getServerMaxRam(server) -
+                    this.ns.getServerUsedRam(server);
+                if (server == 'host') {
+                    free_ram -= reserved_ram;
+                }
+                if (free_ram < required_ram) {
+                    continue;
+                }
+                // deploy script to server
+                if (!this.ns.fileExists(script, server)) {
+                    // await debug_log(ns, ['scp script', script, 'to', server], debug);
+                    await this.ns.scp(script, 'home', server);
+                }
+                this.ns.exec(script, server, threads, target);
+                return threads;
+            }
+            attempts -= 1;
+            threads = Math.floor(threads / 2);
+        }
+        await csv_log(this.ns, [
+            target,
+            'unable to run',
+            script,
+            threads,
+            attempts,
+        ]);
+        this.ns.tprint(
+            'failed to run -> ',
+            script,
+            'x',
+            threads,
+            ' -> ',
+            target
+        );
+        return;
+    }
 }
+
 export async function main(ns) {
     // await write_headers(ns, debug);
     const runner = new Runner(ns);
