@@ -1,7 +1,7 @@
 /** @param {NS} ns **/
-export function table(ns, data) {
+export function table(ns, data, column = 20) {
     // input a list of items ready to be printed to a line
-    let column = 18,
+    let column = column,
         string = '',
         pad = 0,
         length = 0;
