@@ -7,7 +7,7 @@ import {
 } from 'server_info.js';
 import { table } from 'table_display.js';
 
-export async function csv_log(ns, data, debug) {
+export async function csv_log(ns, data, debug = false) {
     await write_csv(ns, data);
     if (debug) {
         await write_csv(ns, data, 'debug_');
@@ -107,7 +107,7 @@ export class Runner {
         //manual setting
         host_selection: [],
         target_selection: [],
-        //tweaking varibles
+        //tweaking variables
         hack_drain_amount: 90, //amount to drain when running a hack operation
         depth: 5, //depth of scanning
         debug: false,
@@ -194,89 +194,49 @@ export class Runner {
             await this.ns.sleep(2000);
         }
     }
+
     async process_current_target() {
         await this.ns.sleep(50);
         let threads = 0,
+            required_threads = 0,
             current_threads = 0,
             launch_threads = 0,
+            result_threads = 0,
+            list_position = 0,
+            action = '',
             targets = this.targets,
             target = this.current_target,
             hosts = this.hosts,
             debug = this.options.debug,
             [security_delta, money_percent] = get_target_info(this.ns, target),
-            log_details = [
-                target,
-                'action',
-                'requirement',
-                targets[target],
-                security_delta,
-                money_percent,
-            ];
+            log_details = [target, 'action', 0, targets[target]];
 
-        // if security is too high
         if (security_delta > 0) {
-            // if no active weaken tasks
-            let weakens_required = calc_weaken_amount(this.ns, target);
-            current_threads = targets[target][0];
-
-            if (current_threads < weakens_required) {
-                launch_threads = weakens_required - current_threads;
-                threads = await this.run_script('weaken', launch_threads);
-                targets[target] = [current_threads + threads, 0, 0];
-                log_details[1] = 'run weaken';
-                log_details[2] = threads;
-                log_details[3] = targets[target];
-                await csv_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            } else {
-                log_details[1] = 'weakens already';
-                log_details[2] = 'running';
-                await debug_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            }
+            action = 'weaken';
+            required_threads = calc_weaken_amount(this.ns, target);
+            list_position = 0;
         } else if (money_percent < 100) {
-            let grows_required = calc_growth_amount(this.ns, target);
-            current_threads = targets[target][1];
-            if (current_threads < grows_required) {
-                launch_threads = grows_required - current_threads;
-                threads = await this.run_script('grow', launch_threads);
-                log_details[1] = 'run grow';
-                log_details[2] = threads;
-                targets[target] = [0, current_threads + threads, 0];
-                log_details[3] = targets[target];
-                await csv_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            } else {
-                log_details[1] = 'grow';
-                log_details[2] = 'already running';
-                await debug_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            }
+            action = 'grow';
+            required_threads = calc_growth_amount(this.ns, target);
+            list_position = 1;
         } else {
-            let hacks_required = calc_hack_amount(
-                this.ns,
-                target,
-                this.options.hack_drain_amount
-            );
-            current_threads = targets[target][2];
-            if (current_threads < hacks_required) {
-                launch_threads = hacks_required - current_threads;
-                threads = await this.run_script('hack', launch_threads);
-
-                log_details[1] = 'run hack';
-                log_details[2] = threads;
-                targets[target] = [0, 0, current_threads + threads];
-                log_details[3] = targets[target];
-                await csv_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            } else {
-                log_details[1] = 'hack';
-                log_details[2] = 'already running';
-                await debug_log(this.ns, log_details, debug);
-                this.debug_printer(log_details);
-            }
+            action = 'hack';
+            required_threads = calc_hack_amount(this.ns, target);
+            list_position = 2;
+        }
+        current_threads = targets[target][list_position];
+        if (current_threads < required_threads) {
+            launch_threads = required_threads - current_threads;
+            result_threads = await this.run_script(action, launch_threads);
+            targets[target] = [0, 0, 0];
+            targets[target][list_position] = current_threads + result_threads;
+            log_details[1] = 'run ' + action;
+            log_details[2] = launch_threads;
+            await csv_log(this.ns, log_details);
+            this.targets = targets;
         }
     }
+
     async run_script(script, threads) {
         let reserved_ram = 10,
             attempts = 16,
@@ -285,7 +245,12 @@ export class Runner {
 
         script += '.js';
         if (threads < 1 || isNaN(threads)) {
-            this.ns.tprint('run script failed', target, script);
+            this.ns.tprintf(
+                'ERROR - run script - bad thread count' +
+                    target +
+                    script +
+                    threads
+            );
             return;
         }
         while (attempts > 1) {
@@ -321,13 +286,12 @@ export class Runner {
             threads,
             attempts,
         ]);
-        this.ns.tprint(
-            'failed to run -> ',
-            script,
-            'x',
-            threads,
-            ' -> ',
-            target
+        this.ns.tprintf(
+            'ERROR' +
+                'run script failed to pass checks' +
+                target +
+                script +
+                threads
         );
         return;
     }
