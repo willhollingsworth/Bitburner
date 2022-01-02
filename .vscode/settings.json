@@ -4,12 +4,16 @@
         "brutessh",
         "CSEC",
         "depthscanner",
+        "dles",
         "foodnstuff",
         "ftpcrack",
+        "hackrunner",
         "httpworm",
         "joesguns",
+        "killall",
         "relaysmtp",
         "sqlinject",
-        "tprint"
+        "tprint",
+        "tprintf"
     ]
 }
