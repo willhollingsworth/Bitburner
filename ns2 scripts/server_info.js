@@ -1,6 +1,6 @@
 /** @param {NS} ns **/
 import { run_scan } from 'depthscanner.js';
-import { table } from 'table_display.js';
+import { table, table_dynamic } from 'table_display.js';
 
 export function calc_growth_amount(ns, target) {
     let money_filled_percent =
@@ -135,7 +135,7 @@ export function build_headers(ns, type) {
     for (let head of server_list) {
         headers.push(head[0]);
     }
-    table(ns, headers);
+    return headers;
 }
 
 export function scan_hosts(ns, hosts, type) {
@@ -147,7 +147,7 @@ export function scan_hosts(ns, hosts, type) {
             output_data = [];
         if (type == 'predict') {
             // don't return servers you can't hack
-            if (host_data.money_percent[1] == 'NaN') {
+            if (host_data.money_percent[1] == 'NaN' || target == 'home') {
                 continue;
             }
             sort_column = 1;
@@ -164,15 +164,15 @@ export function scan_hosts(ns, hosts, type) {
     }
 
     hosts_data.sort((a, b) => b[sort_column] - a[sort_column]);
-    for (let x of hosts_data) {
-        table(ns, x);
-    }
+    return hosts_data;
 }
 
 export function main(ns) {
     //setup args
     let depth = 2,
-        type = 'standard';
+        type = 'standard',
+        hosts_data = [],
+        headers = [];
     if (ns.args[0]) {
         depth = ns.args[0];
     }
@@ -182,10 +182,10 @@ export function main(ns) {
     } else {
         ns.tprint('no types detected');
     }
-    // ns.tprint('running scan with a depth of ', depth);
-    //
+
     // run main logic
     let hosts = run_scan(ns, 'home', depth); // build an array of directly connected host
-    build_headers(ns, type);
-    scan_hosts(ns, hosts, type);
+    headers = build_headers(ns, type);
+    hosts_data = scan_hosts(ns, hosts, type);
+    table_dynamic(ns, [headers].concat(hosts_data));
 }
