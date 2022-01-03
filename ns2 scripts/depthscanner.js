@@ -23,6 +23,7 @@ function debug_print(ns, data, debug) {
 
 export function run_scan(ns, host = 'home', depth = 1, debug = false) {
     var hosts = ns.scan(host);
+    hosts.push('home');
     debug_print(ns, 'first scan hosts : ' + hosts.length, debug);
     for (var i of [...Array(depth - 1).keys()]) {
         // ns.tprint('loop ', i, ', hosts ', hosts);
