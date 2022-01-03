@@ -2,21 +2,25 @@
 export async function main(ns) {
     let url = 'http://127.0.0.1:7000/',
         script = ns.args[0],
-        scriptJs = script + '.js';
+        script_js = '';
+    ns.tprintf('INFO-------------------------------');
     if (script) {
         if (script.includes('.js')) {
-            ns.tprintf('INFO - js found');
+            ns.tprintf(' .js found,fixing');
+            script_js = script;
             script = script.split('.')[0];
+        } else {
+            script_js = script + '.js';
         }
     }
 
-    if (ns.getScriptName() == scriptJs || !script) {
+    if (ns.getScriptName() == script_js || !script) {
         await ns.wget(url + 'updater', 'updater.js', 'home');
         ns.tprintf('WARN - self updating detected, will not run exec command');
         ns.exit();
     }
-    if (await ns.wget(url + script, scriptJs, 'home')) {
-        ns.tprint(script, ' downloaded');
+    if (await ns.wget(url + script, script_js, 'home')) {
+        ns.tprintf(' ' + script + ' downloaded');
     } else {
         ns.tprintf('ERROR - ' + script + ' unable to download!');
     }
@@ -27,21 +31,27 @@ export async function main(ns) {
     // if (!ns.args[2]) {
     //     ns.args[2] = '';
     // }
-    if (ns.isRunning(scriptJs, 'home')) {
+    if (ns.isRunning(script_js, 'home')) {
         ns.tprintf('WARNING - old script still running, killing it');
-        ns.scriptKill(scriptJs, 'home');
+        ns.scriptKill(script_js, 'home');
         await ns.sleep(1000);
     }
     if (ns.args[1]) {
         if (ns.args[2]) {
-            ns.tprint('2 args - ', ns.args[1], ', ', ns.args[2]);
-            await ns.exec(scriptJs, 'home', 1, ns.args[1], ns.args[2]);
+            ns.tprintf(
+                ' running script with 2 args - ' +
+                    ns.args[1] +
+                    ', ' +
+                    ns.args[2]
+            );
+            await ns.exec(script_js, 'home', 1, ns.args[1], ns.args[2]);
             ns.exit();
         }
-        ns.tprint('1 args - ', ns.args[1]);
-        await ns.exec(scriptJs, 'home', 1, ns.args[1]);
+        ns.tprintf(' running script with 1 args - ' + ns.args[1]);
+        await ns.exec(script_js, 'home', 1, ns.args[1]);
     } else {
-        ns.tprint('no args');
-        await ns.exec(scriptJs, 'home', 1);
+        ns.tprintf(' running script with no args');
+        await ns.exec(script_js, 'home', 1);
     }
+    ns.tprintf('INFO-------------------------------');
 }
