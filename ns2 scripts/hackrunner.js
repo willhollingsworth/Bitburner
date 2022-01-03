@@ -227,11 +227,16 @@ export class Runner {
             action = 'weaken';
             required_threads = calc_weaken_amount(this.ns, target);
             list_position = 0;
-        } else if (money_percent < 100) {
-            action = 'grow';
-            required_threads = calc_growth_amount(this.ns, target);
-            list_position = 1;
-        } else {
+        }
+        if (money_percent < 100) {
+            if (action != 'weaken' || required_threads <= targets[target][0]) {
+                action = 'grow';
+                required_threads = calc_growth_amount(this.ns, target);
+                list_position = 1;
+            }
+        }
+
+        if (money_percent > 99 && security_delta < 0.05) {
             action = 'hack';
             required_threads = calc_hack_amount(this.ns, target);
             list_position = 2;
