@@ -113,13 +113,16 @@ export class Runner {
         debug: false,
     };
     hosts = [];
-    targets = [];
-    current_target = '';
+    targets = {};
     completed_actions = {};
+    current_target = '';
     log_details = [];
 
     constructor(ns) {
         this.ns = ns;
+        this.build_hosts_list();
+        this.targets = this.build_targets_object('targets');
+        this.completed_actions = this.build_targets_object('completed');
     }
 
     debug_printer(data) {
@@ -154,11 +157,11 @@ export class Runner {
         this.debug_printer('hosts list built : ', hosts);
         this.hosts = hosts;
     }
-    build_targets_object() {
+    build_targets_object(type = 'targets') {
         let targets = [],
             targets_object = {},
             target_selection = this.options.target_selection,
-            ignored_targets = this.options.ignored_host,
+            ignored_targets = this.options.ignored_hosts,
             depth = this.options.depth;
 
         if (target_selection.length > 0) {
@@ -178,11 +181,22 @@ export class Runner {
                 this.ns.getServerRequiredHackingLevel(target) <
                     this.ns.getHackingLevel()
         );
-        for (let target of targets) {
-            targets_object[target] = [0, 0, 0];
+        if (type == 'targets') {
+            for (let target of targets) {
+                targets_object[target] = [0, 0, 0];
+            }
+        } else if (type == 'completed') {
+            for (let target of targets) {
+                targets_object[target] = [
+                    [0, 0],
+                    [0, 0],
+                    [0, 0],
+                    [0, 0],
+                ];
+            }
         }
         this.debug_printer('targets object built : ', targets_object);
-        this.targets = targets_object;
+        return targets_object;
     }
     async process_all_targets() {
         let targets = this.targets;
@@ -191,7 +205,7 @@ export class Runner {
                 this.current_target = target;
                 await this.process_current_target();
             }
-            await this.ns.sleep(2000);
+            await this.ns.sleep(500);
         }
     }
 
@@ -206,8 +220,6 @@ export class Runner {
             action = '',
             targets = this.targets,
             target = this.current_target,
-            hosts = this.hosts,
-            debug = this.options.debug,
             [security_delta, money_percent] = get_target_info(this.ns, target),
             log_details = [target, 'action', 0, targets[target]];
 
@@ -226,14 +238,107 @@ export class Runner {
         }
         current_threads = targets[target][list_position];
         if (current_threads < required_threads) {
+            // run script
             launch_threads = required_threads - current_threads;
             result_threads = await this.run_script(action, launch_threads);
+
+            //update target object
             targets[target] = [0, 0, 0];
             targets[target][list_position] = current_threads + result_threads;
-            log_details[1] = 'run ' + action;
-            log_details[2] = launch_threads;
-            await csv_log(this.ns, log_details);
+            current_threads = current_threads + result_threads;
             this.targets = targets;
+
+            // if all threads have run
+            if (current_threads >= required_threads) {
+                //log
+                log_details[1] = 'run ' + action;
+                log_details[2] = current_threads;
+                await csv_log(this.ns, log_details);
+
+                //write completed actions
+                let actions0 = this.completed_actions[target][0][0],
+                    actions1 = this.completed_actions[target][1][0],
+                    actions2 = this.completed_actions[target][2][0],
+                    actions3 = this.completed_actions[target][3][0],
+                    completed_position = 0,
+                    timestamp = Math.ceil(
+                        new Date() / 1000 - this.completed_actions[target][0][1]
+                    );
+
+                //reorder completed positions so it's hack, weaken, grow, weaken
+                if (list_position == 2) {
+                    completed_position = 0;
+                }
+                if (list_position == 0 && !actions1) {
+                    completed_position = 1;
+                } else if (list_position == 1) {
+                    completed_position = 2;
+                } else if (list_position == 0 && actions1) {
+                    completed_position = 3;
+                }
+
+                //subtract previous timestamp from current one to ensure theres a delta
+                if (actions0 || completed_position == 0) {
+                    //write to completed actions object
+                    this.completed_actions[target][completed_position][0] =
+                        current_threads;
+                    this.completed_actions[target][completed_position][1] =
+                        timestamp;
+
+                    actions3 = this.completed_actions[target][3][0];
+
+                    // this.ns.tprint(
+                    //     Date().split(' ')[4],
+                    //     ' ',
+                    //     action,
+                    //     '  ',
+                    //     this.completed_actions
+                    // );
+                }
+                if (completed_position == 0 && actions3) {
+                    // if already completed a loop
+                    let t0 = this.completed_actions[target][0][1],
+                        t1 = this.completed_actions[target][1][1],
+                        t2 = this.completed_actions[target][2][1],
+                        t3 = this.completed_actions[target][3][1];
+
+                    t0 = t1;
+                    t1 = t2 - t1;
+                    t2 = t3 - t2;
+                    t3 = timestamp - t3;
+
+                    this.completed_actions[target][0][1] = t0;
+                    this.completed_actions[target][1][1] = t1;
+                    this.completed_actions[target][2][1] = t2;
+                    this.completed_actions[target][3][1] = t3;
+                    await write_csv(
+                        this.ns,
+                        [target, ...this.completed_actions[target], timestamp],
+                        'completed_'
+                    );
+                    // this.ns.tprint(
+                    //     Date().split(' ')[4],
+                    //     ' completed ' +
+                    //         target +
+                    //         ' in ' +
+                    //         timestamp +
+                    //         ' seconds - H: ' +
+                    //         actions0 +
+                    //         ' W: ' +
+                    //         actions1 +
+                    //         ' G: ' +
+                    //         actions2 +
+                    //         ' W: ' +
+                    //         actions3
+                    // );
+                    this.completed_actions[target] = [
+                        [current_threads, Math.ceil(new Date() / 1000)],
+                        [0, 0],
+                        [0, 0],
+                        [0, 0],
+                    ];
+                }
+            }
         }
     }
 
@@ -243,7 +348,7 @@ export class Runner {
             target = this.current_target,
             hosts = this.hosts;
 
-        script += '.js';
+        script = 'target_' + script + '.js';
         if (threads < 1 || isNaN(threads)) {
             this.ns.tprintf(
                 'ERROR - run script - bad thread count' +
@@ -300,7 +405,5 @@ export class Runner {
 export async function main(ns) {
     // await write_headers(ns, debug);
     const runner = new Runner(ns);
-    runner.build_hosts_list();
-    runner.build_targets_object();
     await runner.process_all_targets();
 }
