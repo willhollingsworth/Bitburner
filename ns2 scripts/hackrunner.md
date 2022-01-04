@@ -1,32 +1,25 @@
-# currently on
-
----
-
-
 # To do
 
+## Build system to queue up sets of jobs on a single target
+
+    - start at full money, no security
+    - run hack - sleep - weaken - grow - sleep
+    - possibly include a check to not start a hack if server is not at
+
 ---
 
-# build system to queue up sets of jobs on a single target
-    - start at full money, no security
-
-    - run hack - sleep - weaken - sleep - grow - sleep - weaken - end
-
-        delay = [5, 15, 12, 15],
+    delay = [5, 15, 12, 15],
     -----
     ---------------
     1234------------
     12---------------
 
-
-## targets
+## Targets list
 
     - targets should only include devices with money that hacking skill is high enough to hit
     - active job listing [0,0,0] should look over all hosts and see if there are any active jobs
 
----
-
-# run multiple sets of grow/weaken/hack
+## Run multiple sets of grow/weaken/hack
 
     - determine timing, order and amount of w/g/h
         - grab amounts from hackrunner, output should be : host - w/g/h   so Joesguns [24,12,7]
@@ -37,18 +30,14 @@
         - have this run as a self enclosed script with fed in arguments
          - could multi thread by repeat running each step multiple times with a delay
 
-
-
     - determine total available ram and run multiple sets as appropriate
 
     - run a single set of w/g/h on all servers, record how many of each was required
     - run multiple sets with above settings
 
----
+# Completed
 
-# completed
-
-## loops
+### Loops
 
 loop over each available server
 
@@ -62,7 +51,7 @@ ensure these values are reset as required (if you see sec or wealth at 100% rese
 
 for now don't run multiple sets of grows or hacks
 
-## hosts
+### Hosts list
 
     - host should only include devices I have root on
     - it'd be good to collect total amount of available ram on all hosts for later functions
