@@ -106,7 +106,7 @@ export class Runner {
         ignored_targets: ['CSEC'],
         //manual setting
         host_selection: ['cloud_6'],
-        target_selection: [],
+        target_selection: ['n00dles'],
         //tweaking variables
         hack_drain_amount: 90, //amount to drain when running a hack operation
         depth: 5, //depth of scanning
@@ -188,10 +188,10 @@ export class Runner {
         } else if (type == 'completed') {
             for (let target of targets) {
                 targets_object[target] = [
-                    [0, 0],
-                    [0, 0],
-                    [0, 0],
-                    [0, 0],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                    // threads [weaken,grow,hack]
+                    // sec to run [longest of w/g, hack, total]
                 ];
             }
         }
@@ -246,22 +246,34 @@ export class Runner {
             list_position = 2;
         }
         current_threads = targets[target][list_position];
+        // this.debug_printer(
+        //     target,
+        //     ' needs ',
+        //     action,
+        //     ' ',
+        //     required_threads,
+        //     ' cur: ',
+        //     current_threads
+        // );
+        //if additional jobs required
         if (current_threads < required_threads) {
             // run script
             launch_threads = required_threads - current_threads;
             result_threads = await this.run_script(action, launch_threads);
-            this.debug_printer(target, ' ', action, ' ', result_threads);
-            //update target object
-            // if ((action = 'hack')) {
-            //     ;
-            // }
+            this.debug_printer(target, ' ran ', action, ' ', result_threads);
+            // update active jobs
             targets[target][list_position] = current_threads + result_threads;
-            current_threads = current_threads + result_threads;
             this.targets = targets;
+            // update current threads
+            current_threads = current_threads + result_threads;
             // if all threads have run
             if (current_threads >= required_threads) {
                 if (action == 'hack') {
+                    // if hack active then grow and weaken complete, update active jobs
                     targets[target] = [0, 0, targets[target][2]];
+                } else {
+                    // else reset hacking active jobs counter
+                    targets[target][2] = 0;
                 }
                 //log
                 log_details[1] = 'run ' + action;
@@ -269,86 +281,42 @@ export class Runner {
                 await csv_log(this.ns, log_details);
 
                 //write completed actions
-                let actions0 = this.completed_actions[target][0][0],
-                    actions1 = this.completed_actions[target][1][0],
-                    actions2 = this.completed_actions[target][2][0],
-                    actions3 = this.completed_actions[target][3][0],
-                    completed_position = 0,
-                    timestamp = Math.ceil(
-                        new Date() / 1000 - this.completed_actions[target][0][1]
-                    );
+                let timestampW = this.completed_actions[target][1][0],
+                    time_delta = Math.ceil(new Date() / 1000 - timestampW),
+                    hack_threads = this.completed_actions[target][0][2];
 
-                //reorder completed positions so it's hack, weaken, grow, weaken
-                if (list_position == 2) {
-                    completed_position = 0;
-                }
-                if (list_position == 0 && !actions1) {
-                    completed_position = 1;
-                } else if (list_position == 1) {
-                    completed_position = 2;
-                } else if (list_position == 0 && actions1) {
-                    completed_position = 3;
-                }
-
-                //subtract previous timestamp from current one to ensure theres a delta
-                if (actions0 || completed_position == 0) {
-                    //write to completed actions object
-                    this.completed_actions[target][completed_position][0] =
-                        current_threads;
-                    this.completed_actions[target][completed_position][1] =
-                        timestamp;
-
-                    actions3 = this.completed_actions[target][3][0];
-
+                //write total threads to completed actions
+                this.completed_actions[target][0][list_position] =
+                    current_threads;
+                this.completed_actions[target][1][list_position] = time_delta;
+                // this.ns.tprint(this.completed_actions);
+                if (action == 'weaken' && hack_threads) {
                     // this.ns.tprint(
-                    //     Date().split(' ')[4],
-                    //     ' ',
-                    //     action,
-                    //     '  ',
-                    //     this.completed_actions
+                    //     target,
+                    //     ' cycle complete ',
+                    //     this.completed_actions[target]
                     // );
-                }
-                if (completed_position == 0 && actions3) {
-                    // if already completed a loop
-                    let t0 = this.completed_actions[target][0][1],
-                        t1 = this.completed_actions[target][1][1],
-                        t2 = this.completed_actions[target][2][1],
-                        t3 = this.completed_actions[target][3][1];
-
-                    t0 = t1;
-                    t1 = t2 - t1;
-                    t2 = t3 - t2;
-                    t3 = timestamp - t3;
-
-                    this.completed_actions[target][0][1] = t0;
-                    this.completed_actions[target][1][1] = t1;
-                    this.completed_actions[target][2][1] = t2;
-                    this.completed_actions[target][3][1] = t3;
-                    await write_csv(
-                        this.ns,
-                        [target, ...this.completed_actions[target], timestamp],
-                        'completed_'
-                    );
-                    // this.ns.tprint(
-                    //     Date().split(' ')[4],
-                    //     ' completed ' +
-                    //         target +
-                    //         ' in ' +
-                    //         timestamp +
-                    //         ' seconds - H: ' +
-                    //         actions0 +
-                    //         ' W: ' +
-                    //         actions1 +
-                    //         ' G: ' +
-                    //         actions2 +
-                    //         ' W: ' +
-                    //         actions3
+                    // // if already completed a loop
+                    // let t0 = this.completed_actions[target][0][1],
+                    //     t1 = this.completed_actions[target][1][1],
+                    //     t2 = this.completed_actions[target][2][1],
+                    //     t3 = this.completed_actions[target][3][1];
+                    // t0 = t1;
+                    // t1 = t2 - t1;
+                    // t2 = t3 - t2;
+                    // t3 = timestamp - t3;
+                    // this.completed_actions[target][0][1] = t0;
+                    // this.completed_actions[target][1][1] = t1;
+                    // this.completed_actions[target][2][1] = t2;
+                    // this.completed_actions[target][3][1] = t3;
+                    // await write_csv(
+                    //     this.ns,
+                    //     [target, ...this.completed_actions[target], timestamp],
+                    //     'completed_'
                     // );
                     this.completed_actions[target] = [
-                        [current_threads, Math.ceil(new Date() / 1000)],
-                        [0, 0],
-                        [0, 0],
-                        [0, 0],
+                        [current_threads, 0, 0],
+                        [Math.ceil(new Date() / 1000), 0, 0],
                     ];
                 }
             }
