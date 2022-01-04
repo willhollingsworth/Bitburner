@@ -23,7 +23,7 @@ function calc_server_costs(ns, limit) {
 function buy_best_server(ns, player_money, name) {
     let server_costs = calc_server_costs(ns, 20),
         best_server_ram = 0,
-        log = false;
+        log = true;
 
     for (let server of server_costs) {
         if (server[1] > player_money) {

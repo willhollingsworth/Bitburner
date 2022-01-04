@@ -105,12 +105,12 @@ export class Runner {
         ignored_hosts: [],
         ignored_targets: ['CSEC'],
         //manual setting
-        host_selection: [],
+        host_selection: ['cloud_6'],
         target_selection: [],
         //tweaking variables
         hack_drain_amount: 90, //amount to drain when running a hack operation
         depth: 5, //depth of scanning
-        debug: false,
+        debug: true,
     };
     hosts = [];
     targets = {};
@@ -125,9 +125,9 @@ export class Runner {
         this.completed_actions = this.build_targets_object('completed');
     }
 
-    debug_printer(data) {
+    debug_printer(...data) {
         if (this.options.debug) {
-            table(this.ns, data, 30);
+            this.ns.tprint(...data);
         }
     }
     build_hosts_list() {
@@ -204,40 +204,44 @@ export class Runner {
             for (let target in targets) {
                 this.current_target = target;
                 await this.process_current_target();
+                await this.ns.sleep(50);
             }
             await this.ns.sleep(500);
         }
     }
 
     async process_current_target() {
-        await this.ns.sleep(50);
-        let threads = 0,
+        let target = this.current_target,
+            [security_delta, money_percent] = get_target_info(this.ns, target);
+
+        if (security_delta > 0) {
+            await this.do_action('weaken');
+        }
+        if (money_percent < 100) {
+            await this.do_action('grow');
+        }
+        if (money_percent > 99 && security_delta < 0.05) {
+            await this.do_action('hack');
+        }
+    }
+
+    async do_action(action) {
+        let targets = this.targets,
+            target = this.current_target,
             required_threads = 0,
             current_threads = 0,
             launch_threads = 0,
             result_threads = 0,
             list_position = 0,
-            action = '',
-            targets = this.targets,
-            target = this.current_target,
-            [security_delta, money_percent] = get_target_info(this.ns, target),
             log_details = [target, 'action', 0, targets[target]];
 
-        if (security_delta > 0) {
-            action = 'weaken';
+        if (action == 'weaken') {
             required_threads = calc_weaken_amount(this.ns, target);
             list_position = 0;
-        }
-        if (money_percent < 100) {
-            if (action != 'weaken' || required_threads <= targets[target][0]) {
-                action = 'grow';
-                required_threads = calc_growth_amount(this.ns, target);
-                list_position = 1;
-            }
-        }
-
-        if (money_percent > 99 && security_delta < 0.05) {
-            action = 'hack';
+        } else if (action == 'grow') {
+            required_threads = calc_growth_amount(this.ns, target);
+            list_position = 1;
+        } else if (action == 'hack') {
             required_threads = calc_hack_amount(this.ns, target);
             list_position = 2;
         }
@@ -246,15 +250,19 @@ export class Runner {
             // run script
             launch_threads = required_threads - current_threads;
             result_threads = await this.run_script(action, launch_threads);
-
+            this.debug_printer(target, ' ', action, ' ', result_threads);
             //update target object
-            targets[target] = [0, 0, 0];
+            // if ((action = 'hack')) {
+            //     ;
+            // }
             targets[target][list_position] = current_threads + result_threads;
             current_threads = current_threads + result_threads;
             this.targets = targets;
-
             // if all threads have run
             if (current_threads >= required_threads) {
+                if (action == 'hack') {
+                    targets[target] = [0, 0, targets[target][2]];
+                }
                 //log
                 log_details[1] = 'run ' + action;
                 log_details[2] = current_threads;
