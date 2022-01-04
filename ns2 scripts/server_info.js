@@ -58,10 +58,10 @@ export function get_server_info(ns, target, type = 'all') {
         money_avail: ['$ left', Math.round(ns.getServerMoneyAvailable(target))],
         money_percent: [
             '$% filled',
-            (
+            Number(
                 (ns.getServerMoneyAvailable(target) /
                     ns.getServerMaxMoney(target)) *
-                100
+                    100
             ).toPrecision(3),
         ],
         hack_money_per_sec: [
@@ -84,9 +84,9 @@ export function get_server_info(ns, target, type = 'all') {
         ],
         security_delta: [
             'Security Delta',
-            (
+            Number(
                 ns.getServerSecurityLevel(target) -
-                ns.getServerMinSecurityLevel(target)
+                    ns.getServerMinSecurityLevel(target)
             ).toPrecision(3),
         ],
         weakens_required: ['weakens required', calc_weaken_amount(ns, target)],
