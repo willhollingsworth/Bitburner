@@ -7,6 +7,19 @@ import {
 } from 'server_info.js';
 import { table } from 'table_display.js';
 
+function disable_unneeded_logging(ns) {
+    ns.disableLog('getServerMinSecurityLevel');
+    ns.disableLog('getServerSecurityLevel');
+    ns.disableLog('getServerMoneyAvailable');
+    ns.disableLog('getServerMaxMoney');
+    ns.disableLog('getServerRequiredHackingLevel');
+    ns.disableLog('sleep');
+    ns.disableLog('getServerMaxRam');
+    ns.disableLog('getServerUsedRam');
+    ns.disableLog('getHackingLevel');
+    ns.disableLog('exec');
+}
+
 export async function csv_log(ns, data, debug = false) {
     await write_csv(ns, data);
     if (debug) {
@@ -105,12 +118,12 @@ export class Runner {
         ignored_hosts: [],
         ignored_targets: ['CSEC'],
         //manual setting
-        host_selection: ['cloud_6'],
+        host_selection: [],
         target_selection: ['n00dles'],
         //tweaking variables
         hack_drain_amount: 90, //amount to drain when running a hack operation
         depth: 5, //depth of scanning
-        debug: true,
+        debug: false,
     };
     hosts = [];
     targets = {};
@@ -126,6 +139,7 @@ export class Runner {
     }
 
     debug_printer(...data) {
+        this.ns.print(...data);
         if (this.options.debug) {
             this.ns.tprint(...data);
         }
@@ -154,7 +168,12 @@ export class Runner {
                 check_and_get_access(this.ns, host) &&
                 this.ns.getServerMaxRam(host) > 0
         );
-        this.debug_printer('hosts list built : ', hosts);
+        this.debug_printer(
+            'hosts list built, length : ',
+            Object.keys(hosts).length,
+            ' - ',
+            hosts
+        );
         this.hosts = hosts;
     }
     build_targets_object(type = 'targets') {
@@ -189,17 +208,28 @@ export class Runner {
             for (let target of targets) {
                 targets_object[target] = [
                     [0, 0, 0],
-                    [0, 0, 0],
+                    [0, 0],
                     // threads [weaken,grow,hack]
-                    // sec to run [longest of w/g, hack, total]
+                    // sec to run [total, longest of weaken and grow,]
                 ];
             }
         }
-        this.debug_printer('targets object built : ', targets_object);
+        this.debug_printer(
+            'targets object built, length : ',
+            Object.keys(targets_object).length,
+            ' - ',
+            targets_object
+        );
         return targets_object;
     }
+
     async process_all_targets() {
         let targets = this.targets;
+        await write_csv(
+            this.ns,
+            ['target', 'threads W/G/H', 'delays full/middle'],
+            'completed_'
+        );
         while (true) {
             for (let target in targets) {
                 this.current_target = target;
@@ -246,21 +276,23 @@ export class Runner {
             list_position = 2;
         }
         current_threads = targets[target][list_position];
-        // this.debug_printer(
-        //     target,
-        //     ' needs ',
-        //     action,
-        //     ' ',
-        //     required_threads,
-        //     ' cur: ',
-        //     current_threads
-        // );
         //if additional jobs required
         if (current_threads < required_threads) {
             // run script
             launch_threads = required_threads - current_threads;
             result_threads = await this.run_script(action, launch_threads);
-            this.debug_printer(target, ' ran ', action, ' ', result_threads);
+            if (!result_threads) {
+                return;
+            }
+            this.debug_printer(
+                target,
+                ' ran ',
+                action,
+                ' ',
+                result_threads,
+                ' ',
+                targets[target]
+            );
             // update active jobs
             targets[target][list_position] = current_threads + result_threads;
             this.targets = targets;
@@ -281,43 +313,52 @@ export class Runner {
                 await csv_log(this.ns, log_details);
 
                 //write completed actions
-                let timestampW = this.completed_actions[target][1][0],
-                    time_delta = Math.ceil(new Date() / 1000 - timestampW),
-                    hack_threads = this.completed_actions[target][0][2];
+                if (
+                    action == 'weaken' ||
+                    this.completed_actions[target][0][0]
+                ) {
+                    // only start block at weaken, don't start on any other action
+                    let timestamp_first = this.completed_actions[target][1][0],
+                        time_delta = Math.ceil(
+                            new Date() / 1000 - timestamp_first
+                        ),
+                        hack_threads = this.completed_actions[target][0][2],
+                        first_action =
+                            targets[target][0] != 0 && targets[target][1] == 0;
 
-                //write total threads to completed actions
-                this.completed_actions[target][0][list_position] =
-                    current_threads;
-                this.completed_actions[target][1][list_position] = time_delta;
-                // this.ns.tprint(this.completed_actions);
-                if (action == 'weaken' && hack_threads) {
-                    // this.ns.tprint(
-                    //     target,
-                    //     ' cycle complete ',
-                    //     this.completed_actions[target]
-                    // );
-                    // // if already completed a loop
-                    // let t0 = this.completed_actions[target][0][1],
-                    //     t1 = this.completed_actions[target][1][1],
-                    //     t2 = this.completed_actions[target][2][1],
-                    //     t3 = this.completed_actions[target][3][1];
-                    // t0 = t1;
-                    // t1 = t2 - t1;
-                    // t2 = t3 - t2;
-                    // t3 = timestamp - t3;
-                    // this.completed_actions[target][0][1] = t0;
-                    // this.completed_actions[target][1][1] = t1;
-                    // this.completed_actions[target][2][1] = t2;
-                    // this.completed_actions[target][3][1] = t3;
-                    // await write_csv(
-                    //     this.ns,
-                    //     [target, ...this.completed_actions[target], timestamp],
-                    //     'completed_'
-                    // );
-                    this.completed_actions[target] = [
-                        [current_threads, 0, 0],
-                        [Math.ceil(new Date() / 1000), 0, 0],
-                    ];
+                    // if first action of cycle
+                    if (first_action) {
+                        if (timestamp_first) {
+                            //if not first run of cycle
+                            this.completed_actions[target][1][0] = time_delta;
+                            this.debug_printer(
+                                Date().split(' ')[4],
+                                ' ',
+                                target,
+                                ' cycle complete ',
+                                this.completed_actions[target]
+                            );
+                            await write_csv(
+                                this.ns,
+                                [target, ...this.completed_actions[target]],
+                                'completed_'
+                            );
+                            this.completed_actions[target] = [
+                                [0, 0, 0],
+                                [0, 0],
+                            ];
+                        }
+                        this.completed_actions[target][1][0] = Math.ceil(
+                            new Date() / 1000
+                        );
+                    }
+                    //write total threads to completed actions
+                    this.completed_actions[target][0][list_position] +=
+                        current_threads;
+                    //if grow and weaken have run, record the time it took
+                    if (action == 'hack' && timestamp_first) {
+                        this.completed_actions[target][1][1] = time_delta;
+                    }
                 }
             }
         }
@@ -359,8 +400,21 @@ export class Runner {
                     // await debug_log(ns, ['scp script', script, 'to', server], debug);
                     await this.ns.scp(script, 'home', server);
                 }
-                this.ns.exec(script, server, threads, target);
-                return threads;
+                if (!this.ns.exec(script, server, threads, target, threads)) {
+                    this.ns.tprint(
+                        'ERROR ' +
+                            script +
+                            ' failed ' +
+                            server +
+                            ' ' +
+                            threads +
+                            ' ' +
+                            target
+                    );
+                    return false;
+                } else {
+                    return threads;
+                }
             }
             attempts -= 1;
             threads = Math.floor(threads / 2);
@@ -385,6 +439,7 @@ export class Runner {
 
 export async function main(ns) {
     // await write_headers(ns, debug);
+    disable_unneeded_logging(ns);
     const runner = new Runner(ns);
     await runner.process_all_targets();
 }
