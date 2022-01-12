@@ -119,7 +119,7 @@ export class Runner {
         ignored_targets: ['CSEC'],
         //manual setting
         host_selection: [],
-        target_selection: ['n00dles'],
+        target_selection: [],
         //tweaking variables
         hack_drain_amount: 90, //amount to drain when running a hack operation
         depth: 5, //depth of scanning
@@ -368,7 +368,8 @@ export class Runner {
         let reserved_ram = 10,
             attempts = 16,
             target = this.current_target,
-            hosts = this.hosts;
+            hosts = this.hosts,
+            random_hash = threads + '_' + Math.floor(Math.random() * 1000);
 
         script = 'target_' + script + '.js';
         if (threads < 1 || isNaN(threads)) {
@@ -400,7 +401,9 @@ export class Runner {
                     // await debug_log(ns, ['scp script', script, 'to', server], debug);
                     await this.ns.scp(script, 'home', server);
                 }
-                if (!this.ns.exec(script, server, threads, target, threads)) {
+                if (
+                    !this.ns.exec(script, server, threads, target, random_hash)
+                ) {
                     this.ns.tprint(
                         'ERROR ' +
                             script +
