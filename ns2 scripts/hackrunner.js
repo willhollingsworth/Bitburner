@@ -59,7 +59,8 @@ export class Runner {
         //tweaking variables
         hack_drain_amount: 99, //amount to drain when running a hack operation
         depth: 1, //depth of scanning
-        game_stage_cool_down: 0,
+        game_stage_timeout_raise: 0,
+        game_stage_timeout_lower: 0,
         debug: false,
         previous_money: 0,
     };
@@ -85,22 +86,39 @@ export class Runner {
         let ram_total = get_total_ram_usage(this.ns),
             old_depth = this.options.depth;
         if (ram_total[0] / ram_total[1] < 0.8) {
-            if (this.options.game_stage_cool_down < 1) {
+            if (
+                this.options.game_stage_timeout_raise < 1 &&
+                this.options.depth < 20
+            ) {
                 this.options.depth += 1;
             } else {
-                this.options.game_stage_cool_down -= 1;
+                this.options.game_stage_timeout_raise -= 1;
+            }
+        } else if (
+            ram_total[0] / ram_total[1] > 0.98 &&
+            this.options.depth > 1
+        ) {
+            if (this.options.game_stage_timeout_lower < 1) {
+                this.options.depth -= 1;
+            } else {
+                this.options.game_stage_timeout_lower -= 1;
             }
         }
         if (old_depth != this.options.depth) {
             this.targets = this.build_targets_object('targets');
             this.completed_actions = this.build_targets_object('completed');
-            this.options.game_stage_cool_down = 4;
+            this.options.game_stage_timeout_raise = 4;
+            this.options.game_stage_timeout_lower = 4;
             this.debug_printer(
                 'game stage changed, D:',
                 this.options.depth,
                 ', ram usage:',
                 ((ram_total[0] / ram_total[1]) * 100).toFixed(1)
             );
+            this.build_hosts_list();
+        }
+        if (this.ns.getServerMoneyAvailable('home') > 800000000000) {
+            this.ns.exec('purchase_server.js', 'home', 1);
         }
     }
 
@@ -135,9 +153,7 @@ export class Runner {
         );
         this.debug_printer(
             'hosts list built, length : ',
-            Object.keys(hosts).length,
-            ' - ',
-            hosts
+            Object.keys(hosts).length
         );
         this.hosts = hosts;
     }
@@ -163,12 +179,22 @@ export class Runner {
                 this.ns.getServerMoneyAvailable(target) > 1 &&
                 target != 'home' &&
                 this.ns.getServerRequiredHackingLevel(target) <
-                    this.ns.getHackingLevel()
+                    this.ns.getHackingLevel() &&
+                check_and_get_access(this.ns, target)
         );
         if (type == 'targets') {
             for (let target of targets) {
-                targets_object[target] = [0, 0, 0];
+                if (this.targets.hasOwnProperty(target)) {
+                    targets_object[target] = this.targets[target];
+                } else {
+                    targets_object[target] = [0, 0, 0];
+                }
             }
+            this.debug_printer(
+                type,
+                ' object built, length : ',
+                Object.keys(targets_object).length
+            );
         } else if (type == 'completed') {
             for (let target of targets) {
                 targets_object[target] = [
@@ -179,11 +205,6 @@ export class Runner {
                 ];
             }
         }
-        this.debug_printer(
-            type,
-            ' object built, length : ',
-            Object.keys(targets_object).length
-        );
         return targets_object;
     }
 
