@@ -5,93 +5,29 @@ import {
     calc_growth_amount,
     calc_hack_amount,
 } from 'server_info.js';
-import { table } from 'table_display.js';
+import {
+    check_and_get_access,
+    get_target_info,
+    write_csv,
+    get_total_ram_usage,
+} from 'shared_functions.js';
 
+import { table } from 'table_display.js';
 function disable_unneeded_logging(ns) {
-    ns.disableLog('getServerMinSecurityLevel');
-    ns.disableLog('getServerSecurityLevel');
-    ns.disableLog('getServerMoneyAvailable');
-    ns.disableLog('getServerMaxMoney');
-    ns.disableLog('getServerRequiredHackingLevel');
-    ns.disableLog('sleep');
-    ns.disableLog('getServerMaxRam');
-    ns.disableLog('getServerUsedRam');
-    ns.disableLog('getHackingLevel');
-    ns.disableLog('exec');
+    ns.disableLog('ALL');
 }
 
 export async function csv_log(ns, data, debug = false) {
     await write_csv(ns, data);
     if (debug) {
-        await write_csv(ns, data, 'debug_');
+        await write_csv(ns, data, 'debug');
     }
 }
 
 export async function debug_log(ns, data, debug) {
     if (debug) {
-        await write_csv(ns, data, 'debug_');
+        await write_csv(ns, data, 'debug');
     }
-}
-
-export async function write_csv(ns, data, filename_mod = '') {
-    let output = '',
-        filename = ns.getScriptName().split('.')[0],
-        timestamp = Date().split(' ')[4];
-    filename = filename_mod + 'log_csv_' + filename + '.txt';
-    // output.unshift(timestamp);
-    output = [timestamp].concat(data);
-    output = output.join(', ');
-    await ns.write(filename, output + '\r\n');
-    return;
-}
-
-export function check_and_get_access(ns, target) {
-    if (ns.hasRootAccess(target)) {
-        return true;
-    }
-    let num_ports_req = ns.getServerNumPortsRequired(target),
-        num_ports_avail = 0;
-    if (ns.fileExists('brutessh.exe', 'home')) {
-        ns.brutessh(target);
-        num_ports_avail += 1;
-    }
-    if (ns.fileExists('FTPCrack.exe', 'home')) {
-        ns.ftpcrack(target);
-        num_ports_avail += 1;
-    }
-    if (ns.fileExists('relaySMTP.exe', 'home')) {
-        ns.relaysmtp(target);
-        num_ports_avail += 1;
-    }
-    if (ns.fileExists('HTTPWorm.exe', 'home')) {
-        ns.httpworm(target);
-        num_ports_avail += 1;
-    }
-    if (ns.fileExists('SQLInject.exe', 'home')) {
-        ns.sqlinject(target);
-        num_ports_avail += 1;
-    }
-    let port_delta = num_ports_avail - num_ports_req;
-    if (port_delta >= 0) {
-        ns.nuke(target);
-        return true;
-    } else {
-        return false;
-    }
-}
-
-export function get_target_info(ns, target) {
-    let security_delta = (
-            ns.getServerSecurityLevel(target) -
-            ns.getServerMinSecurityLevel(target)
-        ).toFixed(2),
-        money_percent = (
-            (ns.getServerMoneyAvailable(target) /
-                ns.getServerMaxMoney(target)) *
-            100
-        ).toFixed(2);
-
-    return [security_delta, money_percent];
 }
 
 export async function write_headers(ns, debug) {
@@ -121,9 +57,10 @@ export class Runner {
         host_selection: [],
         target_selection: [],
         //tweaking variables
-        hack_drain_amount: 90, //amount to drain when running a hack operation
-        depth: 5, //depth of scanning
+        hack_drain_amount: 0, //amount to drain when running a hack operation
+        depth: 0, //depth of scanning
         debug: false,
+        previous_money: 0,
     };
     hosts = [];
     targets = {};
@@ -134,8 +71,6 @@ export class Runner {
     constructor(ns) {
         this.ns = ns;
         this.build_hosts_list();
-        this.targets = this.build_targets_object('targets');
-        this.completed_actions = this.build_targets_object('completed');
     }
 
     debug_printer(...data) {
@@ -143,6 +78,36 @@ export class Runner {
         if (this.options.debug) {
             this.ns.tprint(...data);
         }
+    }
+
+    get_game_stage() {
+        let ram_total = get_total_ram_usage(this.ns)[1],
+            old_depth = this.options.depth;
+        this.ns.tprint;
+        if (ram_total < 36000) {
+            this.options.depth = 2;
+            this.options.hack_drain_amount = 50;
+        } else if (ram_total < 50000) {
+            this.options.depth = 4;
+            this.options.hack_drain_amount = 80;
+        }
+        if (old_depth != this.options.depth) {
+            this.targets = this.build_targets_object('targets');
+            this.completed_actions = this.build_targets_object('completed');
+            this.debug_printer(
+                'game stage changed, D: ',
+                this.options.depth,
+                ', H: ',
+                this.options.hack_drain_amount
+            );
+        }
+    }
+
+    purchase_server() {
+        let current_money = this.ns.getServerMoneyAvailable('home');
+        if (current_money / 4)
+            this.options.previous_money =
+                this.ns.getServerMoneyAvailable('home');
     }
     build_hosts_list() {
         let hosts = [],
@@ -156,7 +121,7 @@ export class Runner {
             log_string[0] = 'manual host mode on, ';
         } else {
             log_string[0] = '';
-            hosts = run_scan(this.ns, 'home', depth);
+            hosts = run_scan(this.ns, 'home', 20);
             // this.build_hosts_list();
         }
         hosts.push('home');
@@ -215,28 +180,29 @@ export class Runner {
             }
         }
         this.debug_printer(
-            'targets object built, length : ',
+            type,
+            ' object built, length : ',
             Object.keys(targets_object).length,
             ' - ',
-            targets_object
+            Object.keys(targets_object)
         );
         return targets_object;
     }
 
     async process_all_targets() {
-        let targets = this.targets;
         await write_csv(
             this.ns,
             ['target', 'threads W/G/H', 'delays full/middle'],
-            'completed_'
+            'completed'
         );
         while (true) {
-            for (let target in targets) {
+            this.get_game_stage();
+            for (let target in this.targets) {
                 this.current_target = target;
                 await this.process_current_target();
-                await this.ns.sleep(50);
+                await this.ns.sleep(10);
             }
-            await this.ns.sleep(500);
+            await this.ns.sleep(2000);
         }
     }
 
@@ -272,7 +238,11 @@ export class Runner {
             required_threads = calc_growth_amount(this.ns, target);
             list_position = 1;
         } else if (action == 'hack') {
-            required_threads = calc_hack_amount(this.ns, target);
+            required_threads = calc_hack_amount(
+                this.ns,
+                target,
+                this.options.hack_drain_amount
+            );
             list_position = 2;
         }
         current_threads = targets[target][list_position];
@@ -284,14 +254,18 @@ export class Runner {
             if (!result_threads) {
                 return;
             }
-            this.debug_printer(
-                target,
-                ' ran ',
-                action,
-                ' ',
-                result_threads,
-                ' ',
-                targets[target]
+            await write_csv(
+                this.ns,
+                [
+                    target,
+                    ' ran ',
+                    action,
+                    ' ',
+                    result_threads,
+                    ' ',
+                    targets[target],
+                ],
+                'actions'
             );
             // update active jobs
             targets[target][list_position] = current_threads + result_threads;
@@ -341,7 +315,7 @@ export class Runner {
                             await write_csv(
                                 this.ns,
                                 [target, ...this.completed_actions[target]],
-                                'completed_'
+                                'completed'
                             );
                             this.completed_actions[target] = [
                                 [0, 0, 0],
@@ -390,7 +364,7 @@ export class Runner {
                 let free_ram =
                     this.ns.getServerMaxRam(server) -
                     this.ns.getServerUsedRam(server);
-                if (server == 'host') {
+                if (server == 'home') {
                     free_ram -= reserved_ram;
                 }
                 if (free_ram < required_ram) {
@@ -401,6 +375,17 @@ export class Runner {
                     // await debug_log(ns, ['scp script', script, 'to', server], debug);
                     await this.ns.scp(script, 'home', server);
                 }
+                if (threads < 1) {
+                    // this.ns.tprint(
+                    //     'script failed to run',
+                    //     script,
+                    //     server,
+                    //     threads,
+                    //     target
+                    // );
+                    continue;
+                }
+
                 if (
                     !this.ns.exec(script, server, threads, target, random_hash)
                 ) {
@@ -429,13 +414,13 @@ export class Runner {
             threads,
             attempts,
         ]);
-        this.ns.tprintf(
-            'ERROR' +
-                'run script failed to pass checks' +
-                target +
-                script +
-                threads
-        );
+        // this.ns.tprintf(
+        //     'ERROR' +
+        //         'run script failed to pass checks' +
+        //         target +
+        //         script +
+        //         threads
+        // );
         return;
     }
 }
