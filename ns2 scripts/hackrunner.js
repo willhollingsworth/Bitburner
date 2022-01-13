@@ -57,8 +57,9 @@ export class Runner {
         host_selection: [],
         target_selection: [],
         //tweaking variables
-        hack_drain_amount: 0, //amount to drain when running a hack operation
-        depth: 0, //depth of scanning
+        hack_drain_amount: 99, //amount to drain when running a hack operation
+        depth: 1, //depth of scanning
+        game_stage_cool_down: 0,
         debug: false,
         previous_money: 0,
     };
@@ -81,24 +82,24 @@ export class Runner {
     }
 
     get_game_stage() {
-        let ram_total = get_total_ram_usage(this.ns)[1],
+        let ram_total = get_total_ram_usage(this.ns),
             old_depth = this.options.depth;
-        this.ns.tprint;
-        if (ram_total < 36000) {
-            this.options.depth = 2;
-            this.options.hack_drain_amount = 50;
-        } else if (ram_total < 50000) {
-            this.options.depth = 4;
-            this.options.hack_drain_amount = 80;
+        if (ram_total[0] / ram_total[1] < 0.8) {
+            if (this.options.game_stage_cool_down < 1) {
+                this.options.depth += 1;
+            } else {
+                this.options.game_stage_cool_down -= 1;
+            }
         }
         if (old_depth != this.options.depth) {
             this.targets = this.build_targets_object('targets');
             this.completed_actions = this.build_targets_object('completed');
+            this.options.game_stage_cool_down = 4;
             this.debug_printer(
-                'game stage changed, D: ',
+                'game stage changed, D:',
                 this.options.depth,
-                ', H: ',
-                this.options.hack_drain_amount
+                ', ram usage:',
+                ((ram_total[0] / ram_total[1]) * 100).toFixed(1)
             );
         }
     }
@@ -124,7 +125,6 @@ export class Runner {
             hosts = run_scan(this.ns, 'home', 20);
             // this.build_hosts_list();
         }
-        hosts.push('home');
         if (ignored_hosts) {
             hosts = hosts.filter((host) => !ignored_hosts.includes(host)); //filter unwanted hosts
         }
@@ -182,9 +182,7 @@ export class Runner {
         this.debug_printer(
             type,
             ' object built, length : ',
-            Object.keys(targets_object).length,
-            ' - ',
-            Object.keys(targets_object)
+            Object.keys(targets_object).length
         );
         return targets_object;
     }
@@ -305,13 +303,13 @@ export class Runner {
                         if (timestamp_first) {
                             //if not first run of cycle
                             this.completed_actions[target][1][0] = time_delta;
-                            this.debug_printer(
-                                Date().split(' ')[4],
-                                ' ',
-                                target,
-                                ' cycle complete ',
-                                this.completed_actions[target]
-                            );
+                            // this.debug_printer(
+                            //     Date().split(' ')[4],
+                            //     ' ',
+                            //     target,
+                            //     ' cycle complete ',
+                            //     this.completed_actions[target]
+                            // );
                             await write_csv(
                                 this.ns,
                                 [target, ...this.completed_actions[target]],
@@ -339,7 +337,7 @@ export class Runner {
     }
 
     async run_script(script, threads) {
-        let reserved_ram = 10,
+        let reserved_ram = 20,
             attempts = 16,
             target = this.current_target,
             hosts = this.hosts,
