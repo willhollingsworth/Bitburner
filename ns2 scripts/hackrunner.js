@@ -57,10 +57,11 @@ export class Runner {
         host_selection: [],
         target_selection: [],
         //tweaking variables
-        hack_drain_amount: 99, //amount to drain when running a hack operation
-        depth: 1, //depth of scanning
-        game_stage_timeout_raise: 0,
-        game_stage_timeout_lower: 0,
+        hack_drain_amount: 98, //amount to drain when running a hack operation
+        depth: 20, //depth of scanning
+        game_stage_depth_timeout: 0,
+        game_stage_training_timeout: 3,
+        artificial_training_multiplier: 1,
         debug: false,
         previous_money: 0,
     };
@@ -84,42 +85,42 @@ export class Runner {
 
     get_game_stage() {
         let ram_total = get_total_ram_usage(this.ns),
-            old_depth = this.options.depth;
-        if (ram_total[0] / ram_total[1] < 0.8) {
-            if (
-                this.options.game_stage_timeout_raise < 1 &&
-                this.options.depth < 20
-            ) {
-                this.options.depth += 1;
+            old_depth = this.options.depth,
+            ram_usage = ram_total[0] / ram_total[1];
+
+        this.targets = this.build_targets_object('targets');
+        this.completed_actions = this.build_targets_object('completed');
+        this.build_hosts_list();
+        if (ram_usage < 0.9) {
+            if (this.options.game_stage_training_timeout < 1) {
+                this.options.artificial_training_multiplier += Math.round(
+                    (0.9 - ram_usage) * 20
+                );
+                this.options.game_stage_training_timeout = 2;
             } else {
-                this.options.game_stage_timeout_raise -= 1;
+                this.options.game_stage_training_timeout -= 1;
             }
-        } else if (
-            ram_total[0] / ram_total[1] > 0.98 &&
-            this.options.depth > 1
-        ) {
-            if (this.options.game_stage_timeout_lower < 1) {
-                this.options.depth -= 1;
-            } else {
-                this.options.game_stage_timeout_lower -= 1;
-            }
-        }
-        if (old_depth != this.options.depth) {
-            this.targets = this.build_targets_object('targets');
-            this.completed_actions = this.build_targets_object('completed');
-            this.options.game_stage_timeout_raise = 4;
-            this.options.game_stage_timeout_lower = 4;
-            this.debug_printer(
-                'game stage changed, D:',
-                this.options.depth,
-                ', ram usage:',
-                ((ram_total[0] / ram_total[1]) * 100).toFixed(1)
+        } else {
+            this.options.artificial_training_multiplier = Math.max(
+                1,
+
+                this.options.artificial_training_multiplier -
+                    Math.round(ram_usage * 10)
             );
-            this.build_hosts_list();
         }
-        if (this.ns.getServerMoneyAvailable('home') > 800000000000) {
-            this.ns.exec('purchase_server.js', 'home', 1);
-        }
+
+        this.debug_printer(
+            'hosts :',
+            this.hosts.length,
+            ', targets:',
+            Object.keys(this.targets).length,
+            ', new training multi :',
+            this.options.artificial_training_multiplier.toFixed(1),
+            ', game stage changed, D:',
+            this.options.depth,
+            ', ram usage:',
+            ((ram_total[0] / ram_total[1]) * 100).toFixed(1)
+        );
     }
 
     purchase_server() {
@@ -150,10 +151,6 @@ export class Runner {
             (host) =>
                 check_and_get_access(this.ns, host) &&
                 this.ns.getServerMaxRam(host) > 0
-        );
-        this.debug_printer(
-            'hosts list built, length : ',
-            Object.keys(hosts).length
         );
         this.hosts = hosts;
     }
@@ -190,11 +187,7 @@ export class Runner {
                     targets_object[target] = [0, 0, 0];
                 }
             }
-            this.debug_printer(
-                type,
-                ' object built, length : ',
-                Object.keys(targets_object).length
-            );
+            // targets_object.sort((a, b) => a[1] - b[1])
         } else if (type == 'completed') {
             for (let target of targets) {
                 targets_object[target] = [
@@ -215,13 +208,13 @@ export class Runner {
             'completed'
         );
         while (true) {
-            this.get_game_stage();
             for (let target in this.targets) {
                 this.current_target = target;
                 await this.process_current_target();
-                await this.ns.sleep(10);
+                await this.ns.sleep(50);
             }
             await this.ns.sleep(2000);
+            this.get_game_stage();
         }
     }
 
@@ -251,11 +244,18 @@ export class Runner {
             log_details = [target, 'action', 0, targets[target]];
 
         if (action == 'weaken') {
-            required_threads = calc_weaken_amount(this.ns, target);
+            required_threads =
+                calc_weaken_amount(this.ns, target) *
+                this.options.artificial_training_multiplier;
             list_position = 0;
         } else if (action == 'grow') {
-            required_threads = calc_growth_amount(this.ns, target);
+            required_threads =
+                calc_growth_amount(this.ns, target) *
+                this.options.artificial_training_multiplier;
             list_position = 1;
+            if (isNaN(required_threads)) {
+                required_threads = 100;
+            }
         } else if (action == 'hack') {
             required_threads = calc_hack_amount(
                 this.ns,
@@ -273,19 +273,6 @@ export class Runner {
             if (!result_threads) {
                 return;
             }
-            await write_csv(
-                this.ns,
-                [
-                    target,
-                    ' ran ',
-                    action,
-                    ' ',
-                    result_threads,
-                    ' ',
-                    targets[target],
-                ],
-                'actions'
-            );
             // update active jobs
             targets[target][list_position] = current_threads + result_threads;
             this.targets = targets;
@@ -324,13 +311,6 @@ export class Runner {
                         if (timestamp_first) {
                             //if not first run of cycle
                             this.completed_actions[target][1][0] = time_delta;
-                            // this.debug_printer(
-                            //     Date().split(' ')[4],
-                            //     ' ',
-                            //     target,
-                            //     ' cycle complete ',
-                            //     this.completed_actions[target]
-                            // );
                             await write_csv(
                                 this.ns,
                                 [target, ...this.completed_actions[target]],
@@ -395,13 +375,6 @@ export class Runner {
                     await this.ns.scp(script, 'home', server);
                 }
                 if (threads < 1) {
-                    // this.ns.tprint(
-                    //     'script failed to run',
-                    //     script,
-                    //     server,
-                    //     threads,
-                    //     target
-                    // );
                     continue;
                 }
 
@@ -433,19 +406,13 @@ export class Runner {
             threads,
             attempts,
         ]);
-        // this.ns.tprintf(
-        //     'ERROR' +
-        //         'run script failed to pass checks' +
-        //         target +
-        //         script +
-        //         threads
-        // );
         return;
     }
 }
 
 export async function main(ns) {
     // await write_headers(ns, debug);
+    ns.tail();
     disable_unneeded_logging(ns);
     const runner = new Runner(ns);
     await runner.process_all_targets();
