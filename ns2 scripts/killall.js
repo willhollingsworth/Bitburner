@@ -14,7 +14,8 @@ function build_active_scripts_list(ns, host) {
 }
 
 function kill_scripts(ns, host, scripts) {
-    let log = [];
+    let log = [],
+        count = 0;
     if (scripts == undefined) {
         return;
     }
@@ -26,15 +27,19 @@ function kill_scripts(ns, host, scripts) {
         }
         ns.kill(...script_args);
         log.push(script[0] + ' ');
+        count += 1;
     }
-    ns.tprint(host, ' killed ', ...log);
+    // ns.tprint(host, ' killed ', ...log);
+    return count;
 }
 
 export async function main(ns) {
-    ns.tprint('script starting');
+    let count = 0;
+    ns.tprint('killing scripts');
     const runner = new Runner(ns);
     for (let host of runner.hosts) {
         let scripts = build_active_scripts_list(ns, host);
-        kill_scripts(ns, host, scripts);
+        count += kill_scripts(ns, host, scripts);
     }
+    ns.tprint('killed ', count, ' scripts');
 }
