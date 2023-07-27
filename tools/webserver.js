@@ -8,7 +8,7 @@ https://www.tutorialsteacher.com/nodejs/create-nodejs-web-server
 */
 https: var port = 7000;
 //set script folder
-const script_folder = path.join(__dirname, '..', 'ns2 scripts');
+const script_folder = path.join(__dirname, '..', 'ns2_v2');
 
 //read folder contents, strip file extension
 var scripts = fs.readdirSync(script_folder).map((i) => {
@@ -36,7 +36,7 @@ var server = http.createServer(function (request, response) {
         // if file isn't found return 404
         response.writeHead(404, { 'Content-Type': 'text/plain' });
         response.end(req + ' not found');
-        console.log(req, 'not found');
+        console.log(req, 'not found in',scripts);
     }
 });
 console.log('server started on http://127.0.0.1:' + port);

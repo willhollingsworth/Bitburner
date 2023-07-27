@@ -1,2 +1,2 @@
-node tools\webserver.js
+node webserver.js
 pause
